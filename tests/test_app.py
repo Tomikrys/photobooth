@@ -14,11 +14,12 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("IMAP_USER", "a@b.cz")
     monkeypatch.setenv("IMAP_PASS", "secret")
     monkeypatch.setenv("RAW_DIR", str(tmp_path / "raw"))
+    monkeypatch.setenv("CAMERA_DIR", str(tmp_path / "camera"))
     monkeypatch.setenv("PROCESSED_DIR", str(tmp_path / "processed"))
     monkeypatch.setenv("THUMBS_DIR", str(tmp_path / "processed" / "thumbs"))
     monkeypatch.setenv("PRINTED_DIR", str(tmp_path / "printed"))
     monkeypatch.setenv("HIDDEN_DIR", str(tmp_path / "hidden"))
-    for d in ["raw", "processed", "processed/thumbs", "printed", "hidden"]:
+    for d in ["raw", "camera", "processed", "processed/thumbs", "printed", "hidden"]:
         (tmp_path / d).mkdir(parents=True)
 
     import importlib, config

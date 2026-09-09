@@ -56,3 +56,17 @@ def test_portrait_thumbnail_width_is_400px(dirs):
     result = process_image(str(src), dirs["processed"], dirs["hidden"])
     thumb = Image.open(result["thumb"])
     assert thumb.size[0] == 400
+
+
+def test_raw_dir_backs_up_original(dirs, tmp_path):
+    # camera/ is the ingest folder; raw/ is the backup archive
+    raw_backup = tmp_path / "raw_backup"
+    raw_backup.mkdir()
+    src = Path(dirs["raw"]) / "archive_me.jpg"  # dirs["raw"] here is just a working folder in the fixture
+    make_jpeg(str(src), 3000, 2000)
+    from watcher import process_image
+    result = process_image(str(src), dirs["processed"], dirs["hidden"], raw_dir=str(raw_backup))
+    assert result is not None
+    # original backed up under raw/, source (camera/) cleaned up
+    assert (raw_backup / "archive_me.jpg").exists()
+    assert not src.exists()

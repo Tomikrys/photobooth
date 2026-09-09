@@ -12,6 +12,7 @@ IMAP_SERVER = os.environ["IMAP_SERVER"]
 IMAP_USER = os.environ["IMAP_USER"]
 IMAP_PASS = os.environ["IMAP_PASS"]
 IMAP_POLL_INTERVAL = int(os.environ.get("IMAP_POLL_INTERVAL", "30"))
+CAMERA_DIR = os.environ.get("CAMERA_DIR", "./photos/camera")
 RAW_DIR = os.environ.get("RAW_DIR", "./photos/raw")
 PROCESSED_DIR = os.environ.get("PROCESSED_DIR", "./photos/processed")
 THUMBS_DIR = os.environ.get("THUMBS_DIR", "./photos/processed/thumbs")

@@ -34,7 +34,7 @@ def _centre_crop(img: Image.Image) -> Image.Image:
     return img.crop((left, top, left + target_w, top + target_h))
 
 
-def process_image(src_path: str, processed_dir: str, hidden_dir: str, thumbs_dir: str | None = None) -> dict | None:
+def process_image(src_path: str, processed_dir: str, hidden_dir: str, thumbs_dir: str | None = None, raw_dir: str | None = None) -> dict | None:
     src = Path(src_path)
     if src.suffix.lower() not in SUPPORTED_EXTENSIONS:
         return None
@@ -57,7 +57,12 @@ def process_image(src_path: str, processed_dir: str, hidden_dir: str, thumbs_dir
         thumb = img.resize((400, thumb_h), Image.LANCZOS)
         thumb.save(str(thumb_path), "JPEG", quality=80)
 
-        src.unlink()  # remove from raw/ after successful processing
+        if raw_dir:
+            Path(raw_dir).mkdir(parents=True, exist_ok=True)
+            backup_path = Path(raw_dir) / src.name
+            if not backup_path.exists():
+                shutil.copy2(src_path, str(backup_path))
+        src.unlink()  # remove from camera/ after successful processing (and raw backup)
         return {"fullres": str(fullres_path), "thumb": str(thumb_path), "stem": stem}
     except Exception as exc:
         log.warning("Failed to process %s: %s", src_path, exc)
@@ -95,7 +100,7 @@ class _Handler(FileSystemEventHandler):
             for p in ready:
                 del self._pending[p]
         for path in ready:
-            result = process_image(path, config.PROCESSED_DIR, config.HIDDEN_DIR, config.THUMBS_DIR)
+            result = process_image(path, config.PROCESSED_DIR, config.HIDDEN_DIR, config.THUMBS_DIR, config.RAW_DIR)
             if result:
                 try:
                     self._on_new_photo(result)
@@ -107,17 +112,18 @@ class PhotoWatcher:
     def __init__(self, on_new_photo):
         self._handler = _Handler(on_new_photo)
         self._observer = Observer()
-        self._observer.schedule(self._handler, config.RAW_DIR, recursive=False)
+        self._observer.schedule(self._handler, config.CAMERA_DIR, recursive=False)
         self._running = False
 
     def start(self):
+        os.makedirs(config.CAMERA_DIR, exist_ok=True)
         os.makedirs(config.RAW_DIR, exist_ok=True)
         os.makedirs(config.PROCESSED_DIR, exist_ok=True)
         os.makedirs(config.THUMBS_DIR, exist_ok=True)
         os.makedirs(config.PRINTED_DIR, exist_ok=True)
         os.makedirs(config.HIDDEN_DIR, exist_ok=True)
-        # Sweep pre-existing files in raw/ — watchdog only reacts to new events
-        for p in Path(config.RAW_DIR).iterdir():
+        # Sweep pre-existing files in camera/ — watchdog only reacts to new events
+        for p in Path(config.CAMERA_DIR).iterdir():
             if p.is_file() and not p.name.startswith(".") and not p.name.endswith(".tmp"):
                 with self._handler._lock:
                     self._handler._pending[str(p)] = time.time()  # ready now

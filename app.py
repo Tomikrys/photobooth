@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
     poller = InboxPoller(
         config.IMAP_SERVER, config.IMAP_USER, config.IMAP_PASS,
-        config.RAW_DIR, config.IMAP_POLL_INTERVAL
+        config.CAMERA_DIR, config.IMAP_POLL_INTERVAL
     )
     poller.start()
 
