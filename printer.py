@@ -1,4 +1,4 @@
-import platform, subprocess, tempfile, os
+import platform, subprocess
 from pathlib import Path
 from PIL import Image
 
@@ -26,8 +26,6 @@ def _print_windows(filepath: str, printer_name: str, copies: int) -> None:
 
     printer_handle = win32print.OpenPrinter(printer_name)
     try:
-        printer_info = win32print.GetPrinter(printer_handle, 2)
-        pdevmode = printer_info["pDevMode"]
         dc = win32ui.CreateDC()
         dc.CreatePrinterDC(printer_name)
 
@@ -48,7 +46,7 @@ def _print_windows(filepath: str, printer_name: str, copies: int) -> None:
             dc.StartDoc(Path(filepath).name)
             dc.StartPage()
             dib = ImageWin.Dib(img)
-            dib.draw(dc.GetHandleOutput(), (x_offset, y_offset, x_offset + new_w, y_offset + new_h))
+            dib.draw(dc.GetSafeHdc(), (x_offset, y_offset, x_offset + new_w, y_offset + new_h))
             dc.EndPage()
             dc.EndDoc()
     finally:

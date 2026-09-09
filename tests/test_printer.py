@@ -1,4 +1,4 @@
-import sys, pytest
+import pytest
 from unittest.mock import patch, MagicMock
 
 def test_print_calls_lp_on_mac(tmp_path):
@@ -6,7 +6,7 @@ def test_print_calls_lp_on_mac(tmp_path):
     from PIL import Image
     Image.new("RGB", (900, 600), (200, 100, 50)).save(str(jpeg), "JPEG")
 
-    with patch("platform.system", return_value="Darwin"), \
+    with patch("printer.platform.system", return_value="Darwin"), \
          patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
         from printer import print_image
@@ -22,7 +22,7 @@ def test_print_raises_on_lp_failure(tmp_path):
     from PIL import Image
     Image.new("RGB", (900, 600)).save(str(jpeg), "JPEG")
 
-    with patch("platform.system", return_value="Darwin"), \
+    with patch("printer.platform.system", return_value="Darwin"), \
          patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=1, stderr="error")
         from printer import print_image
