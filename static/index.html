@@ -64,14 +64,7 @@
         <button id="print-btn" class="gold-bg text-gray-900 font-bold rounded-full px-4 py-2 w-full text-sm hover:opacity-90">🖨 TISKNOUT</button>
 
         <!-- Email section -->
-        <div class="w-full flex flex-col gap-2">
-          <button id="email-toggle-btn" class="border gold-border gold rounded-full px-4 py-2 w-full text-sm hover:opacity-80">✉ E-MAIL</button>
-          <div id="email-form" class="gap-2" style="display:none;flex-direction:column">
-            <input id="email-input" type="email" value="eliskatom2026@seznam.cz"
-              class="bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs w-full focus:border-yellow-600 outline-none">
-            <button id="email-send-btn" class="gold-bg text-gray-900 font-bold rounded px-3 py-1 text-xs w-full">Odeslat</button>
-          </div>
-        </div>
+        <button id="email-toggle-btn" class="border gold-border gold rounded-full px-4 py-2 w-full text-sm hover:opacity-80">✉ E-MAIL</button>
 
         <button id="hide-btn" class="border border-red-800 text-red-400 rounded-full px-4 py-2 w-full text-sm hover:border-red-500 hover:text-red-300">🗑 SMAZAT</button>
       </div>
@@ -79,6 +72,33 @@
 
     <!-- Filmstrip -->
     <div id="filmstrip" class="flex gap-2 overflow-x-auto px-4 py-2 border-t border-gray-800" style="height:80px"></div>
+  </div>
+
+  <!-- Email modal -->
+  <div id="email-modal" class="fixed inset-0 z-[70] items-center justify-center" style="display:none;background:rgba(0,0,0,0.75)">
+    <div class="bg-gray-900 border gold-border rounded-lg p-6 w-full max-w-md mx-4 shadow-2xl relative">
+      <button id="email-modal-close" class="absolute top-2 right-3 text-gray-500 hover:text-white text-2xl leading-none">✕</button>
+      <h2 class="gold text-lg font-bold tracking-widest mb-1">ODESLAT FOTOGRAFII</h2>
+      <p class="text-xs text-gray-400 mb-4">Zadejte e-mailovou adresu příjemce. Více adres oddělte čárkou.</p>
+
+      <label class="block text-xs text-gray-500 mb-1 tracking-widest">E-MAIL</label>
+      <input id="email-modal-input" type="text" placeholder="jan@example.cz, marie@example.cz"
+        class="bg-black border border-gray-700 text-white rounded px-3 py-2 text-sm w-full focus:border-yellow-600 outline-none mb-1">
+      <p class="text-xs text-gray-600 mb-4">Např.: <span class="gold">jan@example.cz, marie@example.cz</span></p>
+
+      <div class="flex gap-2">
+        <button id="email-modal-cancel" class="flex-1 border border-gray-700 text-gray-400 rounded-full px-4 py-2 text-sm hover:border-gray-500 hover:text-white">Zrušit</button>
+        <button id="email-modal-send" class="flex-1 gold-bg text-gray-900 font-bold rounded-full px-4 py-2 text-sm hover:opacity-90 flex items-center justify-center gap-2">
+          <span id="email-modal-send-label">Odeslat</span>
+          <svg id="email-modal-spinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+            <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <p id="email-modal-status" class="text-xs text-center mt-3 h-4"></p>
+    </div>
   </div>
 
   <!-- Toast -->

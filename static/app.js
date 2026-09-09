@@ -65,7 +65,6 @@ function openLightbox(index) {
   currentIndex = index;
   copiesCount = 1;
   document.getElementById("copies-count").textContent = 1;
-  document.getElementById("email-form").style.display = "none";
   document.getElementById("lightbox").classList.add("open");
   renderLightbox();
 }
@@ -102,6 +101,11 @@ document.getElementById("next-btn").addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (e) => {
+  if (emailModal.style.display === "flex") {
+    if (e.key === "Escape") closeEmailModal();
+    if (e.key === "Enter" && !emailSendBtn.disabled) emailSendBtn.click();
+    return;  // don't fall through to lightbox nav while modal is open
+  }
   if (!document.getElementById("lightbox").classList.contains("open")) return;
   if (e.key === "ArrowLeft")  document.getElementById("prev-btn").click();
   if (e.key === "ArrowRight") document.getElementById("next-btn").click();
@@ -153,16 +157,50 @@ document.getElementById("print-btn").addEventListener("click", async () => {
   }
 });
 
-// ── Email ──────────────────────────────────────────────────────────────────
-document.getElementById("email-toggle-btn").addEventListener("click", () => {
-  const ef = document.getElementById("email-form");
-  ef.style.display = ef.style.display === "none" ? "flex" : "none";
-});
+// ── Email modal ────────────────────────────────────────────────────────────
+const emailModal   = document.getElementById("email-modal");
+const emailInput   = document.getElementById("email-modal-input");
+const emailStatus  = document.getElementById("email-modal-status");
+const emailSendBtn = document.getElementById("email-modal-send");
+const emailSpinner = document.getElementById("email-modal-spinner");
+const emailSendLbl = document.getElementById("email-modal-send-label");
 
-document.getElementById("email-send-btn").addEventListener("click", async () => {
+function openEmailModal() {
+  emailInput.value = "";
+  emailStatus.textContent = "";
+  emailStatus.className = "text-xs text-center mt-3 h-4";
+  setEmailBusy(false);
+  emailModal.style.display = "flex";
+  setTimeout(() => emailInput.focus(), 50);
+}
+function closeEmailModal() {
+  if (emailSendBtn.disabled) return;  // don't close while sending
+  emailModal.style.display = "none";
+}
+function setEmailBusy(busy) {
+  emailSendBtn.disabled = busy;
+  emailSpinner.classList.toggle("hidden", !busy);
+  emailSendLbl.textContent = busy ? "Odesílám…" : "Odeslat";
+  emailInput.disabled = busy;
+  document.getElementById("email-modal-cancel").disabled = busy;
+  document.getElementById("email-modal-close").style.pointerEvents = busy ? "none" : "auto";
+}
+
+document.getElementById("email-toggle-btn").addEventListener("click", openEmailModal);
+document.getElementById("email-modal-close").addEventListener("click", closeEmailModal);
+document.getElementById("email-modal-cancel").addEventListener("click", closeEmailModal);
+emailModal.addEventListener("click", (e) => { if (e.target === emailModal) closeEmailModal(); });
+
+emailSendBtn.addEventListener("click", async () => {
+  const recipient = emailInput.value.trim();
+  if (!recipient) {
+    emailStatus.textContent = "Zadejte e-mailovou adresu.";
+    emailStatus.className = "text-xs text-center mt-3 h-4 text-red-400";
+    return;
+  }
   const photo = photos[currentIndex];
-  const recipient = document.getElementById("email-input").value.trim();
-  if (!recipient) return;
+  setEmailBusy(true);
+  emailStatus.textContent = "";
   try {
     const res = await fetch("/api/email", {
       method: "POST",
@@ -170,10 +208,20 @@ document.getElementById("email-send-btn").addEventListener("click", async () => 
       body: JSON.stringify({ filename: photo.filename, recipient }),
     });
     const data = await res.json();
-    showToastMsg(data.ok ? "E-mail odeslán!" : `Chyba: ${data.error}`, data.ok);
-    if (data.ok) document.getElementById("email-form").style.display = "none";
+    if (data.ok) {
+      emailStatus.textContent = "✓ E-mail odeslán";
+      emailStatus.className = "text-xs text-center mt-3 h-4 gold";
+      setEmailBusy(false);
+      setTimeout(() => { emailModal.style.display = "none"; }, 1200);
+    } else {
+      emailStatus.textContent = "✗ " + (data.error || "Chyba odeslání");
+      emailStatus.className = "text-xs text-center mt-3 h-4 text-red-400";
+      setEmailBusy(false);
+    }
   } catch (e) {
-    showToastMsg("Chyba při odesílání e-mailu", false);
+    emailStatus.textContent = "✗ Chyba spojení";
+    emailStatus.className = "text-xs text-center mt-3 h-4 text-red-400";
+    setEmailBusy(false);
   }
 });
 

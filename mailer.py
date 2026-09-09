@@ -8,15 +8,22 @@ from pathlib import Path
 
 def send_email(
     filepath: str,
-    recipient: str,
+    recipient,  # str (single) or list[str] (multiple)
     smtp_server: str,
     smtp_port: int,
     smtp_user: str,
     smtp_pass: str,
 ) -> None:
+    if isinstance(recipient, str):
+        recipients = [r.strip() for r in recipient.split(",") if r.strip()]
+    else:
+        recipients = [r.strip() for r in recipient if r.strip()]
+    if not recipients:
+        raise ValueError("No recipient specified")
+
     msg = MIMEMultipart()
     msg["From"] = smtp_user
-    msg["To"] = recipient
+    msg["To"] = ", ".join(recipients)
     msg["Subject"] = "Vaše fotografie — Eliška & Tom 2026"
 
     body = MIMEText("Dobrý den,\n\nv příloze najdete Vaši fotografii ze svatby Elišky a Toma.\n\nDěkujeme za účast!", "plain", "utf-8")
@@ -31,4 +38,4 @@ def send_email(
 
     with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
         server.login(smtp_user, smtp_pass)
-        server.send_message(msg)
+        server.send_message(msg, to_addrs=recipients)
