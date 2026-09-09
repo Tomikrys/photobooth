@@ -2,8 +2,6 @@ import os, shutil, logging
 from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 from flask_socketio import SocketIO
-import eventlet
-eventlet.monkey_patch()
 
 import config
 import printer
@@ -13,7 +11,7 @@ log = logging.getLogger(__name__)
 
 flask_app = Flask(__name__, static_folder="static", static_url_path="")
 flask_app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "photobooth-dev-key-change-in-prod")
-socketio = SocketIO(flask_app, async_mode="eventlet", cors_allowed_origins="*")
+socketio = SocketIO(flask_app, async_mode="threading", cors_allowed_origins="*")
 
 
 def _photo_list():
@@ -121,4 +119,5 @@ if __name__ == "__main__":
     )
     poller.start()
 
-    socketio.run(flask_app, host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", "5001"))
+    socketio.run(flask_app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
