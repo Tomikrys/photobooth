@@ -1,0 +1,124 @@
+import os, shutil, logging
+from pathlib import Path
+from flask import Flask, jsonify, request, send_from_directory
+from flask_socketio import SocketIO
+import eventlet
+eventlet.monkey_patch()
+
+import config
+import printer
+import mailer
+
+log = logging.getLogger(__name__)
+
+flask_app = Flask(__name__, static_folder="static", static_url_path="")
+flask_app.config["SECRET_KEY"] = os.urandom(24)
+socketio = SocketIO(flask_app, async_mode="eventlet", cors_allowed_origins="*")
+
+
+def _photo_list():
+    processed = Path(config.PROCESSED_DIR)
+    photos = []
+    for f in sorted(processed.glob("*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True):
+        if f.stem.endswith("_thumb"):
+            continue
+        thumb = processed / f"{f.stem}_thumb.jpg"
+        photos.append({
+            "filename": f.name,
+            "thumb": f"/photos/processed/{thumb.name}" if thumb.exists() else f"/photos/processed/{f.name}",
+            "timestamp": f.stat().st_mtime,
+        })
+    return photos
+
+
+@flask_app.route("/")
+def index():
+    return send_from_directory("static", "index.html")
+
+
+@flask_app.route("/photos/<path:subpath>")
+def serve_photo(subpath):
+    base = Path(".").resolve()
+    return send_from_directory(str(base), f"photos/{subpath}")
+
+
+@flask_app.route("/api/photos")
+def api_photos():
+    return jsonify(_photo_list())
+
+
+@flask_app.route("/api/print", methods=["POST"])
+def api_print():
+    data = request.json
+    filename = data["filename"]
+    copies = int(data.get("copies", 1))
+    filepath = str(Path(config.PROCESSED_DIR) / filename)
+    try:
+        printer.print_image(filepath, config.PRINTER_NAME, copies)
+        shutil.copy2(filepath, str(Path(config.PRINTED_DIR) / filename))
+        return jsonify({"ok": True})
+    except Exception as exc:
+        log.error("Print error: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@flask_app.route("/api/email", methods=["POST"])
+def api_email():
+    data = request.json
+    filename = data["filename"]
+    recipient = data["recipient"]
+    filepath = str(Path(config.PROCESSED_DIR) / filename)
+    try:
+        mailer.send_email(
+            filepath=filepath,
+            recipient=recipient,
+            smtp_server=config.SMTP_SERVER,
+            smtp_port=config.SMTP_PORT,
+            smtp_user=config.SMTP_USER,
+            smtp_pass=config.SMTP_PASS,
+        )
+        return jsonify({"ok": True})
+    except Exception as exc:
+        log.error("Email error: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@flask_app.route("/api/hide", methods=["POST"])
+def api_hide():
+    filename = request.json["filename"]
+    src = Path(config.PROCESSED_DIR) / filename
+    dst = Path(config.HIDDEN_DIR) / filename
+    thumb_src = Path(config.PROCESSED_DIR) / (Path(filename).stem + "_thumb.jpg")
+    thumb_dst = Path(config.HIDDEN_DIR) / thumb_src.name
+    if src.exists():
+        shutil.move(str(src), str(dst))
+    if thumb_src.exists():
+        shutil.move(str(thumb_src), str(thumb_dst))
+    socketio.emit("photo_hidden", {"filename": filename})
+    return jsonify({"ok": True})
+
+
+def on_new_photo(result: dict):
+    socketio.emit("new_photo", {
+        "filename": Path(result["fullres"]).name,
+        "thumb": f"/photos/processed/{Path(result['thumb']).name}",
+        "timestamp": Path(result["fullres"]).stat().st_mtime,
+    })
+
+
+if __name__ == "__main__":
+    from watcher import PhotoWatcher
+    from inbox_poller import InboxPoller
+
+    logging.basicConfig(level=logging.INFO)
+
+    watcher = PhotoWatcher(on_new_photo)
+    watcher.start()
+
+    poller = InboxPoller(
+        config.IMAP_SERVER, config.IMAP_USER, config.IMAP_PASS,
+        config.RAW_DIR, config.IMAP_POLL_INTERVAL
+    )
+    poller.start()
+
+    socketio.run(flask_app, host="0.0.0.0", port=5000)
