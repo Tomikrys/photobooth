@@ -48,3 +48,11 @@ def test_corrupt_file_moved_to_hidden(dirs):
     result = process_image(str(src), dirs["processed"], dirs["hidden"])
     assert result is None
     assert (Path(dirs["hidden"]) / "bad.jpg").exists()
+
+def test_portrait_thumbnail_width_is_400px(dirs):
+    src = Path(dirs["raw"]) / "portrait_thumb.jpg"
+    make_jpeg(str(src), 2000, 3000)
+    from watcher import process_image
+    result = process_image(str(src), dirs["processed"], dirs["hidden"])
+    thumb = Image.open(result["thumb"])
+    assert thumb.size[0] == 400

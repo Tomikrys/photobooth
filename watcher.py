@@ -1,6 +1,10 @@
 import os, shutil, logging
+import time, threading
 from pathlib import Path
 from PIL import Image, ImageOps
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import config
 
 try:
     from pillow_heif import register_heif_opener
@@ -45,22 +49,18 @@ def process_image(src_path: str, processed_dir: str, hidden_dir: str) -> dict | 
         thumb_path   = Path(processed_dir) / f"{stem}_thumb.jpg"
 
         img.save(str(fullres_path), "JPEG", quality=92)
-        thumb = img.copy()
-        thumb.thumbnail((400, 400))
+        tw, th = img.size
+        thumb_h = round(400 * th / tw)
+        thumb = img.resize((400, thumb_h), Image.LANCZOS)
         thumb.save(str(thumb_path), "JPEG", quality=80)
 
+        src.unlink()  # remove from raw/ after successful processing
         return {"fullres": str(fullres_path), "thumb": str(thumb_path), "stem": stem}
     except Exception as exc:
         log.warning("Failed to process %s: %s — moving to hidden", src_path, exc)
         dest = Path(hidden_dir) / src.name
         shutil.move(src_path, str(dest))
         return None
-
-
-import time, threading
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-import config
 
 
 class _Handler(FileSystemEventHandler):
@@ -86,7 +86,10 @@ class _Handler(FileSystemEventHandler):
         for path in ready:
             result = process_image(path, config.PROCESSED_DIR, config.HIDDEN_DIR)
             if result:
-                self._on_new_photo(result)
+                try:
+                    self._on_new_photo(result)
+                except Exception as exc:
+                    log.error("on_new_photo callback failed: %s", exc)
 
 
 class PhotoWatcher:
