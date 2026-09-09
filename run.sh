@@ -2,6 +2,14 @@
 set -e
 cd "$(dirname "$0")"
 
+if [ ! -f ".env" ]; then
+  echo ".env not found — copying .env.example to .env"
+  echo "Edit .env with your PRINTER_NAME, SMTP/IMAP credentials before running again."
+  echo "Run ./list-printers.sh to see available printer names."
+  cp .env.example .env
+  exit 1
+fi
+
 if [ ! -d "venv" ]; then
   python3 -m venv venv
   venv/bin/pip install --upgrade pip
