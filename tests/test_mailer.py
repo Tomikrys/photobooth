@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 
 def test_send_email_calls_smtp(tmp_path):
@@ -6,7 +5,7 @@ def test_send_email_calls_smtp(tmp_path):
     from PIL import Image
     Image.new("RGB", (600, 400)).save(str(jpeg), "JPEG")
 
-    with patch("smtplib.SMTP_SSL") as mock_ssl:
+    with patch("mailer.smtplib.SMTP_SSL") as mock_ssl:
         mock_server = MagicMock()
         mock_ssl.return_value.__enter__ = lambda s: mock_server
         mock_ssl.return_value.__exit__ = MagicMock(return_value=False)
