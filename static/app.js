@@ -19,9 +19,22 @@ socket.on("photo_hidden", ({ filename }) => {
   const removedIdx = photos.findIndex(p => p.filename === filename);
   photos = photos.filter(p => p.filename !== filename);
   const lightboxOpen = document.getElementById("lightbox").classList.contains("open");
-  if (lightboxOpen && removedIdx >= 0 && removedIdx < currentIndex) currentIndex--;
+  if (lightboxOpen && removedIdx >= 0) {
+    if (photos.length === 0) {
+      closeLightbox();
+    } else if (removedIdx === currentIndex) {
+      // Removed the currently-viewed photo — show newer (same index, which is now the next-newer)
+      // If we were on the newest, fall back to the previous (older) one
+      if (currentIndex >= photos.length) currentIndex = photos.length - 1;
+      renderLightbox();
+    } else if (removedIdx < currentIndex) {
+      currentIndex--;
+      renderLightbox();
+    } else {
+      renderFilmstrip();
+    }
+  }
   renderGallery();
-  if (lightboxOpen) renderFilmstrip();
 });
 
 // ── Boot ───────────────────────────────────────────────────────────────────
@@ -173,10 +186,10 @@ document.getElementById("hide-btn").addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filename: photo.filename }),
     });
+    // photo_hidden socket event handles lightbox navigation
   } catch (e) {
     console.error("Hide failed:", e);
   }
-  closeLightbox();
 });
 
 // ── Toast ──────────────────────────────────────────────────────────────────
