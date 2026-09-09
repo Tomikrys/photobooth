@@ -5,7 +5,7 @@ load_dotenv()
 
 PRINTER_NAME = os.environ["PRINTER_NAME"]
 SMTP_SERVER = os.environ["SMTP_SERVER"]
-SMTP_PORT = int(os.environ["SMTP_PORT"])
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
 SMTP_USER = os.environ["SMTP_USER"]
 SMTP_PASS = os.environ["SMTP_PASS"]
 IMAP_SERVER = os.environ["IMAP_SERVER"]
