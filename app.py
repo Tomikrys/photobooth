@@ -16,14 +16,13 @@ socketio = SocketIO(flask_app, async_mode="threading", cors_allowed_origins="*")
 
 def _photo_list():
     processed = Path(config.PROCESSED_DIR)
+    thumbs = Path(config.THUMBS_DIR)
     photos = []
     for f in sorted(processed.glob("*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True):
-        if f.stem.endswith("_thumb"):
-            continue
-        thumb = processed / f"{f.stem}_thumb.jpg"
+        thumb = thumbs / f.name
         photos.append({
             "filename": f.name,
-            "thumb": f"/photos/processed/{thumb.name}" if thumb.exists() else f"/photos/processed/{f.name}",
+            "thumb": f"/photos/thumbs/{f.name}" if thumb.exists() else f"/photos/processed/{f.name}",
             "timestamp": f.stat().st_mtime,
         })
     return photos
@@ -37,6 +36,11 @@ def index():
 @flask_app.route("/photos/processed/<path:filename>")
 def serve_processed_photo(filename):
     return send_from_directory(config.PROCESSED_DIR, filename)
+
+
+@flask_app.route("/photos/thumbs/<path:filename>")
+def serve_thumb(filename):
+    return send_from_directory(config.THUMBS_DIR, filename)
 
 
 @flask_app.route("/api/photos")
@@ -87,11 +91,10 @@ def api_hide():
     if not src.exists():
         return jsonify({"ok": False, "error": "Photo not found"}), 404
     dst = Path(config.HIDDEN_DIR) / filename
-    thumb_src = Path(config.PROCESSED_DIR) / (Path(filename).stem + "_thumb.jpg")
-    thumb_dst = Path(config.HIDDEN_DIR) / thumb_src.name
     shutil.move(str(src), str(dst))
-    if thumb_src.exists():
-        shutil.move(str(thumb_src), str(thumb_dst))
+    thumb = Path(config.THUMBS_DIR) / filename
+    if thumb.exists():
+        thumb.unlink()
     socketio.emit("photo_hidden", {"filename": filename})
     return jsonify({"ok": True})
 
@@ -99,7 +102,7 @@ def api_hide():
 def on_new_photo(result: dict):
     socketio.emit("new_photo", {
         "filename": Path(result["fullres"]).name,
-        "thumb": f"/photos/processed/{Path(result['thumb']).name}",
+        "thumb": f"/photos/thumbs/{Path(result['thumb']).name}",
         "timestamp": Path(result["fullres"]).stat().st_mtime,
     })
 

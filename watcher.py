@@ -34,10 +34,12 @@ def _centre_crop(img: Image.Image) -> Image.Image:
     return img.crop((left, top, left + target_w, top + target_h))
 
 
-def process_image(src_path: str, processed_dir: str, hidden_dir: str) -> dict | None:
+def process_image(src_path: str, processed_dir: str, hidden_dir: str, thumbs_dir: str | None = None) -> dict | None:
     src = Path(src_path)
     if src.suffix.lower() not in SUPPORTED_EXTENSIONS:
         return None
+    if thumbs_dir is None:
+        thumbs_dir = str(Path(processed_dir) / "thumbs")
     try:
         img = Image.open(src_path)
         img = ImageOps.exif_transpose(img)   # auto-orient from EXIF
@@ -46,7 +48,8 @@ def process_image(src_path: str, processed_dir: str, hidden_dir: str) -> dict | 
 
         stem = src.stem
         fullres_path = Path(processed_dir) / f"{stem}.jpg"
-        thumb_path   = Path(processed_dir) / f"{stem}_thumb.jpg"
+        thumb_path   = Path(thumbs_dir) / f"{stem}.jpg"
+        Path(thumbs_dir).mkdir(parents=True, exist_ok=True)
 
         img.save(str(fullres_path), "JPEG", quality=92)
         tw, th = img.size
@@ -92,7 +95,7 @@ class _Handler(FileSystemEventHandler):
             for p in ready:
                 del self._pending[p]
         for path in ready:
-            result = process_image(path, config.PROCESSED_DIR, config.HIDDEN_DIR)
+            result = process_image(path, config.PROCESSED_DIR, config.HIDDEN_DIR, config.THUMBS_DIR)
             if result:
                 try:
                     self._on_new_photo(result)
@@ -110,6 +113,7 @@ class PhotoWatcher:
     def start(self):
         os.makedirs(config.RAW_DIR, exist_ok=True)
         os.makedirs(config.PROCESSED_DIR, exist_ok=True)
+        os.makedirs(config.THUMBS_DIR, exist_ok=True)
         os.makedirs(config.PRINTED_DIR, exist_ok=True)
         os.makedirs(config.HIDDEN_DIR, exist_ok=True)
         # Sweep pre-existing files in raw/ — watchdog only reacts to new events

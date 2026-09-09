@@ -15,10 +15,11 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("IMAP_PASS", "secret")
     monkeypatch.setenv("RAW_DIR", str(tmp_path / "raw"))
     monkeypatch.setenv("PROCESSED_DIR", str(tmp_path / "processed"))
+    monkeypatch.setenv("THUMBS_DIR", str(tmp_path / "processed" / "thumbs"))
     monkeypatch.setenv("PRINTED_DIR", str(tmp_path / "printed"))
     monkeypatch.setenv("HIDDEN_DIR", str(tmp_path / "hidden"))
-    for d in ["raw", "processed", "printed", "hidden"]:
-        (tmp_path / d).mkdir()
+    for d in ["raw", "processed", "processed/thumbs", "printed", "hidden"]:
+        (tmp_path / d).mkdir(parents=True)
 
     import importlib, config
     importlib.reload(config)
@@ -30,7 +31,7 @@ def client(tmp_path, monkeypatch):
 def _make_processed_photo(tmp_path, name="photo1"):
     img = Image.new("RGB", (900, 600))
     img.save(str(tmp_path / "processed" / f"{name}.jpg"), "JPEG")
-    img.save(str(tmp_path / "processed" / f"{name}_thumb.jpg"), "JPEG")
+    img.save(str(tmp_path / "processed" / "thumbs" / f"{name}.jpg"), "JPEG")
 
 def test_get_photos_returns_list(client):
     c, tmp_path = client
@@ -48,6 +49,10 @@ def test_hide_moves_file(client):
     assert resp.status_code == 200
     assert not (tmp_path / "processed" / "photo2.jpg").exists()
     assert (tmp_path / "hidden" / "photo2.jpg").exists()
+    # Thumb is deleted, not moved to hidden
+    assert not (tmp_path / "processed" / "thumbs" / "photo2.jpg").exists()
+    assert not (tmp_path / "hidden" / "photo2.jpg").is_dir()
+    assert not any((tmp_path / "hidden").glob("*_thumb.jpg"))
 
 def test_print_copies_to_printed_on_success(client):
     c, tmp_path = client
