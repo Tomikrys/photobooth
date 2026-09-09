@@ -12,7 +12,7 @@ import mailer
 log = logging.getLogger(__name__)
 
 flask_app = Flask(__name__, static_folder="static", static_url_path="")
-flask_app.config["SECRET_KEY"] = os.urandom(24)
+flask_app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "photobooth-dev-key-change-in-prod")
 socketio = SocketIO(flask_app, async_mode="eventlet", cors_allowed_origins="*")
 
 
@@ -36,10 +36,9 @@ def index():
     return send_from_directory("static", "index.html")
 
 
-@flask_app.route("/photos/<path:subpath>")
-def serve_photo(subpath):
-    base = Path(".").resolve()
-    return send_from_directory(str(base), f"photos/{subpath}")
+@flask_app.route("/photos/processed/<path:filename>")
+def serve_processed_photo(filename):
+    return send_from_directory(config.PROCESSED_DIR, filename)
 
 
 @flask_app.route("/api/photos")
@@ -87,11 +86,12 @@ def api_email():
 def api_hide():
     filename = request.json["filename"]
     src = Path(config.PROCESSED_DIR) / filename
+    if not src.exists():
+        return jsonify({"ok": False, "error": "Photo not found"}), 404
     dst = Path(config.HIDDEN_DIR) / filename
     thumb_src = Path(config.PROCESSED_DIR) / (Path(filename).stem + "_thumb.jpg")
     thumb_dst = Path(config.HIDDEN_DIR) / thumb_src.name
-    if src.exists():
-        shutil.move(str(src), str(dst))
+    shutil.move(str(src), str(dst))
     if thumb_src.exists():
         shutil.move(str(thumb_src), str(thumb_dst))
     socketio.emit("photo_hidden", {"filename": filename})
