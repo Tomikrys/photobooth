@@ -57,9 +57,14 @@ def process_image(src_path: str, processed_dir: str, hidden_dir: str) -> dict | 
         src.unlink()  # remove from raw/ after successful processing
         return {"fullres": str(fullres_path), "thumb": str(thumb_path), "stem": stem}
     except Exception as exc:
-        log.warning("Failed to process %s: %s — moving to hidden", src_path, exc)
-        dest = Path(hidden_dir) / src.name
-        shutil.move(src_path, str(dest))
+        log.warning("Failed to process %s: %s", src_path, exc)
+        if src.exists():
+            try:
+                dest = Path(hidden_dir) / src.name
+                shutil.move(src_path, str(dest))
+                log.info("Moved unprocessable file to %s", dest)
+            except Exception as move_exc:
+                log.error("Failed to move %s to hidden: %s", src_path, move_exc)
         return None
 
 
@@ -71,6 +76,9 @@ class _Handler(FileSystemEventHandler):
 
     def on_modified(self, event):
         if event.is_directory:
+            return
+        name = Path(event.src_path).name
+        if name.startswith(".") or name.endswith(".tmp"):
             return
         with self._lock:
             self._pending[event.src_path] = time.time() + 1.0  # 1s debounce
@@ -110,7 +118,10 @@ class PhotoWatcher:
 
     def _poll_loop(self):
         while self._running:
-            self._handler.flush()
+            try:
+                self._handler.flush()
+            except Exception as exc:
+                log.error("watcher flush failed: %s", exc)
             time.sleep(0.25)
 
     def stop(self):
