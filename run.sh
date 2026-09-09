@@ -4,9 +4,10 @@ cd "$(dirname "$0")"
 
 if [ ! -d "venv" ]; then
   python3 -m venv venv
+  venv/bin/pip install --upgrade pip
   venv/bin/pip install -r requirements.txt
 fi
 
-mkdir -p photos/raw photos/processed photos/printed photos/hidden
+mkdir -p photos/camera photos/raw photos/processed photos/processed/thumbs photos/printed photos/hidden
 
 venv/bin/python app.py
