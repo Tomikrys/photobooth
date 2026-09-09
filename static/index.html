@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eliška & Tom 2026 — Foto Koutek</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    body { background: #1a1a2e; font-family: Georgia, serif; }
+    .gold { color: #d4af37; }
+    .gold-border { border-color: #d4af37; }
+    .gold-bg { background: #d4af37; }
+    #lightbox { display: none; }
+    #lightbox.open { display: flex; }
+    .filmstrip-item.active { outline: 2px solid #d4af37; }
+    #toast { transform: translateX(120%); transition: transform 0.3s ease; }
+    #toast.show { transform: translateX(0); }
+    #photo-main {
+      cursor: zoom-in;
+      transition: transform 0.2s;
+      user-select: none;
+    }
+    #photo-main.zoomed { transform: scale(2); cursor: zoom-out; }
+  </style>
+</head>
+<body class="min-h-screen text-white">
+
+  <!-- Header -->
+  <header class="text-center py-6 border-b border-yellow-700">
+    <h1 class="text-3xl tracking-widest gold">ELIŠKA &amp; TOM 2026</h1>
+    <p class="text-sm tracking-widest text-gray-400 mt-1">FOTO KOUTEK</p>
+    <p class="text-xs text-gray-500 mt-2">Klikněte na fotografii pro tisk nebo odeslání e-mailem</p>
+  </header>
+
+  <!-- Gallery grid -->
+  <main class="p-4">
+    <div id="gallery" class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5"></div>
+    <p id="empty-msg" class="text-center text-gray-600 mt-16 text-sm">Zatím žádné fotografie. Pořiďte první snímek!</p>
+  </main>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="fixed inset-0 z-50 flex-col" style="background:rgba(10,10,25,0.97)">
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Photo area -->
+      <div class="relative flex-1 flex items-center justify-center overflow-hidden select-none">
+        <button id="prev-btn" class="absolute left-2 z-10 text-4xl gold opacity-60 hover:opacity-100 px-2">&#8592;</button>
+        <img id="photo-main" class="max-h-full max-w-full object-contain rounded" src="" alt="foto" draggable="false">
+        <button id="next-btn" class="absolute right-2 z-10 text-4xl gold opacity-60 hover:opacity-100 px-2">&#8594;</button>
+      </div>
+      <!-- Right panel -->
+      <div class="w-48 flex flex-col gap-4 p-4 border-l border-gray-800 justify-center items-center">
+        <button id="close-btn" class="self-end text-gray-500 hover:text-white text-xl">✕</button>
+
+        <!-- Print stepper -->
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xs text-gray-500 tracking-widest">POČET KOPIÍ</span>
+          <div class="flex items-center gap-3">
+            <button id="copies-minus" class="w-8 h-8 rounded-full border gold-border gold text-lg leading-none">−</button>
+            <span id="copies-count" class="gold text-2xl font-bold w-6 text-center">1</span>
+            <button id="copies-plus" class="w-8 h-8 rounded-full border gold-border gold text-lg leading-none">+</button>
+          </div>
+        </div>
+
+        <button id="print-btn" class="gold-bg text-gray-900 font-bold rounded-full px-4 py-2 w-full text-sm hover:opacity-90">🖨 TISKNOUT</button>
+
+        <!-- Email section -->
+        <div class="w-full flex flex-col gap-2">
+          <button id="email-toggle-btn" class="border gold-border gold rounded-full px-4 py-2 w-full text-sm hover:opacity-80">✉ E-MAIL</button>
+          <div id="email-form" class="hidden flex-col gap-2">
+            <input id="email-input" type="email" value="eliskatom2026@seznam.cz"
+              class="bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs w-full focus:border-yellow-600 outline-none">
+            <button id="email-send-btn" class="gold-bg text-gray-900 font-bold rounded px-3 py-1 text-xs w-full">Odeslat</button>
+          </div>
+        </div>
+
+        <button id="hide-btn" class="border border-red-800 text-red-400 rounded-full px-4 py-2 w-full text-sm hover:border-red-500 hover:text-red-300">🗑 SMAZAT</button>
+      </div>
+    </div>
+
+    <!-- Filmstrip -->
+    <div id="filmstrip" class="flex gap-2 overflow-x-auto px-4 py-2 border-t border-gray-800" style="height:80px"></div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 z-40 flex items-center gap-3 bg-gray-900 border border-yellow-700 rounded-lg px-3 py-2 shadow-xl cursor-pointer max-w-xs">
+    <img id="toast-thumb" class="w-12 h-12 object-cover rounded" src="" alt="">
+    <div>
+      <p class="text-xs gold font-bold">Nová fotografie!</p>
+      <p class="text-xs text-gray-400">Klikněte pro zobrazení</p>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
