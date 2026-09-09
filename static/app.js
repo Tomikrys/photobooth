@@ -19,9 +19,13 @@ socket.on("photo_hidden", ({ filename }) => {
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 async function loadPhotos() {
-  const res = await fetch("/api/photos");
-  photos = await res.json();
-  renderGallery();
+  try {
+    const res = await fetch("/api/photos");
+    photos = await res.json();
+    renderGallery();
+  } catch (e) {
+    console.error("Failed to load photos:", e);
+  }
 }
 
 // ── Gallery ────────────────────────────────────────────────────────────────
@@ -41,7 +45,7 @@ function openLightbox(index) {
   currentIndex = index;
   copiesCount = 1;
   document.getElementById("copies-count").textContent = 1;
-  document.getElementById("email-form").classList.add("hidden");
+  document.getElementById("email-form").style.display = "none";
   document.getElementById("lightbox").classList.add("open");
   renderLightbox();
 }
@@ -103,42 +107,55 @@ document.getElementById("copies-plus").addEventListener("click", () => {
 // ── Print ──────────────────────────────────────────────────────────────────
 document.getElementById("print-btn").addEventListener("click", async () => {
   const photo = photos[currentIndex];
-  const res = await fetch("/api/print", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ filename: photo.filename, copies: copiesCount }),
-  });
-  const data = await res.json();
-  showToastMsg(data.ok ? `Tisk zahájen (${copiesCount}×)` : `Chyba tisku: ${data.error}`, data.ok);
+  try {
+    const res = await fetch("/api/print", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: photo.filename, copies: copiesCount }),
+    });
+    const data = await res.json();
+    showToastMsg(data.ok ? `Tisk zahájen (${copiesCount}×)` : `Chyba tisku: ${data.error}`, data.ok);
+  } catch (e) {
+    showToastMsg("Chyba připojení k tiskárně", false);
+  }
 });
 
 // ── Email ──────────────────────────────────────────────────────────────────
 document.getElementById("email-toggle-btn").addEventListener("click", () => {
-  document.getElementById("email-form").classList.toggle("hidden");
+  const ef = document.getElementById("email-form");
+  ef.style.display = ef.style.display === "none" ? "flex" : "none";
 });
 
 document.getElementById("email-send-btn").addEventListener("click", async () => {
   const photo = photos[currentIndex];
   const recipient = document.getElementById("email-input").value.trim();
   if (!recipient) return;
-  const res = await fetch("/api/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ filename: photo.filename, recipient }),
-  });
-  const data = await res.json();
-  showToastMsg(data.ok ? "E-mail odeslán!" : `Chyba: ${data.error}`, data.ok);
-  if (data.ok) document.getElementById("email-form").classList.add("hidden");
+  try {
+    const res = await fetch("/api/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: photo.filename, recipient }),
+    });
+    const data = await res.json();
+    showToastMsg(data.ok ? "E-mail odeslán!" : `Chyba: ${data.error}`, data.ok);
+    if (data.ok) document.getElementById("email-form").style.display = "none";
+  } catch (e) {
+    showToastMsg("Chyba při odesílání e-mailu", false);
+  }
 });
 
 // ── Hide / delete ──────────────────────────────────────────────────────────
 document.getElementById("hide-btn").addEventListener("click", async () => {
   const photo = photos[currentIndex];
-  await fetch("/api/hide", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ filename: photo.filename }),
-  });
+  try {
+    await fetch("/api/hide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: photo.filename }),
+    });
+  } catch (e) {
+    console.error("Hide failed:", e);
+  }
   closeLightbox();
 });
 
