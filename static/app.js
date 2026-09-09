@@ -88,12 +88,25 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape")     closeLightbox();
 });
 
-// ── Zoom on hold ───────────────────────────────────────────────────────────
+// ── Zoom on hold with pan ──────────────────────────────────────────────────
 const photoEl = document.getElementById("photo-main");
-let zoomTimer = null;
-photoEl.addEventListener("mousedown", () => { zoomTimer = setTimeout(() => photoEl.classList.add("zoomed"), 200); });
-photoEl.addEventListener("mouseup",   () => { clearTimeout(zoomTimer); photoEl.classList.remove("zoomed"); });
-photoEl.addEventListener("mouseleave",() => { clearTimeout(zoomTimer); photoEl.classList.remove("zoomed"); });
+function zoomAt(clientX, clientY) {
+  const rect = photoEl.getBoundingClientRect();
+  const x = ((clientX - rect.left) / rect.width) * 100;
+  const y = ((clientY - rect.top) / rect.height) * 100;
+  photoEl.style.transformOrigin = `${x}% ${y}%`;
+  photoEl.classList.add("zoomed");
+}
+function unzoom() {
+  photoEl.classList.remove("zoomed");
+}
+photoEl.addEventListener("mousedown", (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY); });
+photoEl.addEventListener("mousemove", (e) => { if (photoEl.classList.contains("zoomed")) zoomAt(e.clientX, e.clientY); });
+photoEl.addEventListener("mouseup",    unzoom);
+photoEl.addEventListener("mouseleave", unzoom);
+photoEl.addEventListener("touchstart", (e) => { const t = e.touches[0]; zoomAt(t.clientX, t.clientY); }, { passive: true });
+photoEl.addEventListener("touchmove",  (e) => { const t = e.touches[0]; zoomAt(t.clientX, t.clientY); }, { passive: true });
+photoEl.addEventListener("touchend",   unzoom);
 
 // ── Copies stepper ─────────────────────────────────────────────────────────
 document.getElementById("copies-minus").addEventListener("click", () => {
