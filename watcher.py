@@ -112,6 +112,12 @@ class PhotoWatcher:
         os.makedirs(config.PROCESSED_DIR, exist_ok=True)
         os.makedirs(config.PRINTED_DIR, exist_ok=True)
         os.makedirs(config.HIDDEN_DIR, exist_ok=True)
+        # Sweep pre-existing files in raw/ — watchdog only reacts to new events
+        for p in Path(config.RAW_DIR).iterdir():
+            if p.is_file() and not p.name.startswith(".") and not p.name.endswith(".tmp"):
+                with self._handler._lock:
+                    self._handler._pending[str(p)] = time.time()  # ready now
+                log.info("Queued pre-existing file: %s", p.name)
         self._observer.start()
         self._running = True
         threading.Thread(target=self._poll_loop, daemon=True).start()
