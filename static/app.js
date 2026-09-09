@@ -7,14 +7,21 @@ let toastFilename = null;
 
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 socket.on("new_photo", (photo) => {
+  const lightboxOpen = document.getElementById("lightbox").classList.contains("open");
   photos.unshift(photo);
+  if (lightboxOpen) currentIndex++;  // keep same photo selected — new one was prepended
   renderGallery();
+  if (lightboxOpen) renderFilmstrip();
   showToast(photo);
 });
 
 socket.on("photo_hidden", ({ filename }) => {
+  const removedIdx = photos.findIndex(p => p.filename === filename);
   photos = photos.filter(p => p.filename !== filename);
+  const lightboxOpen = document.getElementById("lightbox").classList.contains("open");
+  if (lightboxOpen && removedIdx >= 0 && removedIdx < currentIndex) currentIndex--;
   renderGallery();
+  if (lightboxOpen) renderFilmstrip();
 });
 
 // ── Boot ───────────────────────────────────────────────────────────────────
