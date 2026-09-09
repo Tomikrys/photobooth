@@ -209,10 +209,12 @@ emailSendBtn.addEventListener("click", async () => {
     });
     const data = await res.json();
     if (data.ok) {
-      emailStatus.textContent = "✓ E-mail odeslán";
+      emailStatus.textContent = data.queued
+        ? "⏳ Bez internetu — odešle se po připojení"
+        : "✓ E-mail odeslán";
       emailStatus.className = "text-xs text-center mt-3 h-4 gold";
       setEmailBusy(false);
-      setTimeout(() => { emailModal.style.display = "none"; }, 1200);
+      setTimeout(() => { emailModal.style.display = "none"; }, 1600);
     } else {
       emailStatus.textContent = "✗ " + (data.error || "Chyba odeslání");
       emailStatus.className = "text-xs text-center mt-3 h-4 text-red-400";

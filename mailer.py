@@ -1,9 +1,15 @@
 import smtplib
+import socket
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
 from pathlib import Path
+
+
+class EmailConnectionError(Exception):
+    """Raised when SMTP is unreachable (no internet, DNS failure, connection refused).
+    Callers can catch this to distinguish 'queue for later' from permanent failures."""
 
 
 def send_email(
@@ -36,6 +42,10 @@ def send_email(
         part.add_header("Content-Disposition", "attachment", filename=Path(filepath).name)
         msg.attach(part)
 
-    with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
-        server.login(smtp_user, smtp_pass)
-        server.send_message(msg, to_addrs=recipients)
+    try:
+        with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=10) as server:
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg, to_addrs=recipients)
+    except (socket.gaierror, socket.timeout, ConnectionError, OSError,
+            smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected) as e:
+        raise EmailConnectionError(str(e)) from e

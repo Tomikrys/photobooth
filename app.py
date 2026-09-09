@@ -6,12 +6,22 @@ from flask_socketio import SocketIO
 import config
 import printer
 import mailer
+from email_queue import EmailQueue
 
 log = logging.getLogger(__name__)
 
 flask_app = Flask(__name__, static_folder="static", static_url_path="")
 flask_app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "photobooth-dev-key-change-in-prod")
 socketio = SocketIO(flask_app, async_mode="threading", cors_allowed_origins="*")
+
+email_queue = EmailQueue(
+    queue_path=config.EMAIL_QUEUE_PATH,
+    smtp_server=config.SMTP_SERVER,
+    smtp_port=config.SMTP_PORT,
+    smtp_user=config.SMTP_USER,
+    smtp_pass=config.SMTP_PASS,
+    processed_dir=config.PROCESSED_DIR,
+)
 
 
 def _photo_list():
@@ -79,9 +89,18 @@ def api_email():
             smtp_pass=config.SMTP_PASS,
         )
         return jsonify({"ok": True})
+    except mailer.EmailConnectionError as exc:
+        log.warning("SMTP unreachable — queuing %s for %s: %s", filename, recipient, exc)
+        email_queue.enqueue(filename, recipient)
+        return jsonify({"ok": True, "queued": True})
     except Exception as exc:
         log.error("Email error: %s", exc)
         return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@flask_app.route("/api/email/queue")
+def api_email_queue():
+    return jsonify(email_queue.pending())
 
 
 @flask_app.route("/api/hide", methods=["POST"])
@@ -121,6 +140,8 @@ if __name__ == "__main__":
         config.CAMERA_DIR, config.IMAP_POLL_INTERVAL
     )
     poller.start()
+
+    email_queue.start()
 
     port = int(os.environ.get("PORT", "5001"))
     socketio.run(flask_app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)

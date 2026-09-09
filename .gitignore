@@ -4,3 +4,4 @@ __pycache__/
 photos/
 *.pyc
 .superpowers/
+.DS_Store

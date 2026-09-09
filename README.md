@@ -161,7 +161,7 @@ Pre-existing files in `camera/` at startup are also processed (watchdog only fir
   - **Click-and-hold** a photo to zoom 2.5×; move the mouse to pan.
   - **POČET KOPIÍ** stepper — set number of prints.
   - **🖨 TISKNOUT** — sends N copies to the printer, writes a copy into `photos/printed/`.
-  - **✉ E-MAIL** — opens a modal. Enter one or more comma-separated addresses (`jan@example.cz, marie@example.cz`) → busy spinner during send → auto-close on success.
+  - **✉ E-MAIL** — opens a modal. Enter one or more comma-separated addresses (`jan@example.cz, marie@example.cz`) → busy spinner during send → auto-close on success. **Offline?** If the venue Wi-Fi has no internet, the email is queued to `photos/email_queue.json` and retried every 60 s in the background until it lands — the modal shows "⏳ Bez internetu — odešle se po připojení". The queue survives restarts.
   - **🗑 SMAZAT** — soft delete; moves full-res into `photos/hidden/` and deletes the thumb. The lightbox stays open and navigates to the next-newer photo.
 - **Toast** — bottom-right notification when a new photo arrives; click to jump to it in the lightbox.
 
@@ -176,7 +176,7 @@ source venv/bin/activate
 pytest -q
 ```
 
-18 tests cover: config loading, watcher (crop math, thumbs, hidden-on-corrupt, raw backup), mailer (SMTP mock, multi-recipient), inbox poller (attachment save, non-image skip), print (subprocess mock), and the Flask routes.
+18 tests cover: config loading, watcher (crop math, thumbs, hidden-on-corrupt, raw backup), mailer (SMTP mock, multi-recipient), inbox poller (attachment save, non-image skip), print (subprocess mock), Flask routes, and the offline email queue (persistence, restart reload, retry-on-reconnect).
 
 ### Project layout
 
