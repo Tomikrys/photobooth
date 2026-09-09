@@ -1,0 +1,9 @@
+Flask
+Flask-SocketIO
+eventlet
+watchdog
+Pillow
+pillow-heif
+pywin32; sys_platform == "win32"
+python-dotenv
+pytest
