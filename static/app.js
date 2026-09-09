@@ -243,7 +243,11 @@ document.getElementById("hide-btn").addEventListener("click", async () => {
 // ── Toast ──────────────────────────────────────────────────────────────────
 function showToast(photo) {
   toastFilename = photo.filename;
-  document.getElementById("toast-thumb").src = photo.thumb;
+  const thumb = document.getElementById("toast-thumb");
+  thumb.src = photo.thumb;
+  thumb.style.display = "";
+  document.getElementById("toast").querySelector("p.gold").textContent = "Nová fotografie!";
+  document.getElementById("toast").querySelector("p.text-gray-400").textContent = "Klikněte pro zobrazení";
   const toast = document.getElementById("toast");
   toast.classList.add("show");
   clearTimeout(toastTimer);
@@ -259,7 +263,7 @@ document.getElementById("toast").addEventListener("click", () => {
 });
 
 function showToastMsg(msg, ok) {
-  document.getElementById("toast-thumb").src = "";
+  document.getElementById("toast-thumb").style.display = "none";
   document.getElementById("toast").querySelector("p.gold").textContent = ok ? "✓ " + msg : "✗ " + msg;
   document.getElementById("toast").querySelector("p.text-gray-400").textContent = "";
   const toast = document.getElementById("toast");

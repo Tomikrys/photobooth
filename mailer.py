@@ -24,9 +24,9 @@ def send_email(
     msg = MIMEMultipart()
     msg["From"] = smtp_user
     msg["To"] = ", ".join(recipients)
-    msg["Subject"] = "Vaše fotografie — Eliška & Tom 2026"
+    msg["Subject"] = "Fotočka — Svatba Eliška & Tom 2026"
 
-    body = MIMEText("Dobrý den,\n\nv příloze najdete Vaši fotografii ze svatby Elišky a Toma.\n\nDěkujeme za účast!", "plain", "utf-8")
+    body = MIMEText("Ola amigo,\n\nvyžádaná fotočka leží v příloze.\n\nNech sa páči.", "plain", "utf-8")
     msg.attach(body)
 
     with open(filepath, "rb") as f:
