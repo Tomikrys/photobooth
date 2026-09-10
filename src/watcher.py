@@ -34,9 +34,42 @@ def _centre_crop(img: Image.Image) -> Image.Image:
     return img.crop((left, top, left + target_w, top + target_h))
 
 
+def _wait_for_stable_size(path: Path, timeout: float = 10.0, poll: float = 0.2) -> bool:
+    """Wait until file's byte size is stable across two polls (i.e. writer is done)."""
+    elapsed = 0.0
+    last = -1
+    while elapsed < timeout:
+        if not path.exists():
+            time.sleep(poll)
+            elapsed += poll
+            continue
+        try:
+            size = path.stat().st_size
+        except OSError:
+            time.sleep(poll)
+            elapsed += poll
+            continue
+        if size > 0 and size == last:
+            return True
+        last = size
+        time.sleep(poll)
+        elapsed += poll
+    return False
+
+
 def process_image(src_path: str, processed_dir: str, hidden_dir: str, thumbs_dir: str | None = None, raw_dir: str | None = None) -> dict | None:
     src = Path(src_path)
     if src.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        return None
+    # If the file has disappeared before we got here (another process moved/deleted
+    # it, or a stale watchdog event), silently skip. Not an error worth logging.
+    if not src.exists():
+        return None
+    # Wait for the writer (Nikon MTP move, camera Wi-Fi sync, ...) to finish before
+    # PIL touches the file. Without this we race the transfer and PIL gets a
+    # 0-byte or partial file.
+    if not _wait_for_stable_size(src):
+        log.warning("File %s never stabilised — skipping (will retry on next event).", src.name)
         return None
     if thumbs_dir is None:
         thumbs_dir = str(Path(processed_dir) / "thumbs")
@@ -65,6 +98,12 @@ def process_image(src_path: str, processed_dir: str, hidden_dir: str, thumbs_dir
         src.unlink()  # remove from camera/ after successful processing (and raw backup)
         return {"fullres": str(fullres_path), "thumb": str(thumb_path), "stem": stem}
     except Exception as exc:
+        # File-vanished during processing (another mover got there first, or a
+        # stale watchdog event) is common on Windows during Nikon MTP transfers
+        # — downgrade to debug so the console isn't a wall of red warnings.
+        if isinstance(exc, (FileNotFoundError,)) or not src.exists():
+            log.debug("Skipping %s: file no longer present.", src_path)
+            return None
         log.warning("Failed to process %s: %s", src_path, exc)
         if src.exists():
             try:
@@ -89,7 +128,10 @@ class _Handler(FileSystemEventHandler):
         if name.startswith(".") or name.endswith(".tmp"):
             return
         with self._lock:
-            self._pending[event.src_path] = time.time() + 1.0  # 1s debounce
+            # 2s debounce — plenty of time for a fresh watchdog event to reset the
+            # timer during a multi-second MTP transfer. The stable-size check inside
+            # process_image is the real safety net; this just avoids obvious churn.
+            self._pending[event.src_path] = time.time() + 2.0
 
     on_created = on_modified
 
