@@ -156,6 +156,74 @@ function Select-PrinterInto {
     }
 }
 
+# Interactive camera picker. Enumerates MTP devices visible in Shell "This PC",
+# lets the operator pick one, and writes CAMERA_NAME + CAMERA_FOLDER_PATTERN into .env.
+function Select-CameraInto {
+    param([Parameter(Mandatory)][string]$EnvPath)
+
+    Write-Host ""
+    Write-Host "Scanning for connected cameras (MTP devices)..." -ForegroundColor Cyan
+
+    $shell      = New-Object -ComObject Shell.Application
+    $myComputer = $shell.Namespace(0x11)
+    $devices    = @()
+
+    if ($myComputer) {
+        foreach ($item in $myComputer.Items()) {
+            try {
+                $folder = $item.GetFolder
+                if (-not $folder) { continue }
+                $hasStorage = $folder.Items() | Where-Object { $_.Name -like "*storage*" } | Select-Object -First 1
+                if ($hasStorage) { $devices += $item }
+            } catch {}
+        }
+    }
+
+    if ($devices.Count -eq 0) {
+        Write-Log "No MTP camera found. Connect the camera and re-run, or edit CAMERA_NAME / CAMERA_FOLDER_PATTERN by hand in .env." "Yellow"
+        return
+    }
+
+    Write-Host "Available cameras:" -ForegroundColor Cyan
+    for ($i = 0; $i -lt $devices.Count; $i++) {
+        Write-Host ("  [{0}] {1}" -f ($i + 1), $devices[$i].Name)
+    }
+    Write-Host ""
+
+    $chosen = $null
+    while ($true) {
+        $answer = (Read-Host "Pick a number").Trim()
+        $idx = 0
+        if ([int]::TryParse($answer, [ref]$idx) -and $idx -ge 1 -and $idx -le $devices.Count) {
+            $chosen = $devices[$idx - 1]
+            break
+        }
+        Write-Host "Not a valid choice. Type a number from 1 to $($devices.Count)." -ForegroundColor Yellow
+    }
+
+    # Derive CAMERA_NAME from device name (last word, e.g. "Nikon D3100" → "D3100")
+    $cameraName = ($chosen.Name -split '\s+')[-1]
+
+    # Find the DCIM folder pattern (e.g. "100D3100") — first subfolder under DCIM
+    $folderPattern = ""
+    try {
+        $storage = $chosen.GetFolder.Items() | Where-Object { $_.Name -like "*storage*" } | Select-Object -First 1
+        $dcim    = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" }       | Select-Object -First 1
+        $sub     = $dcim.GetFolder.Items() | Select-Object -First 1
+        if ($sub) { $folderPattern = $sub.Name }
+    } catch {}
+
+    Set-EnvValue -Path $EnvPath -Key "CAMERA_NAME"           -Value $cameraName
+    Write-Log "CAMERA_NAME set to '$cameraName'." "Green"
+
+    if ($folderPattern) {
+        Set-EnvValue -Path $EnvPath -Key "CAMERA_FOLDER_PATTERN" -Value $folderPattern
+        Write-Log "CAMERA_FOLDER_PATTERN set to '$folderPattern' (auto-detected)." "Green"
+    } else {
+        Write-Log "Could not auto-detect CAMERA_FOLDER_PATTERN — leaving default. Edit .env if photos are not imported." "Yellow"
+    }
+}
+
 Write-Log "Photobooth launcher starting" "Cyan"
 Write-Log "Root: $rootDir" "Gray"
 Write-Log "Src : $srcDir" "Gray"
@@ -173,6 +241,9 @@ if (-not (Test-Path -LiteralPath $envAtRoot)) {
 
         Write-Log "Let's pick the printer to use." "Cyan"
         Select-PrinterInto -EnvPath $envAtRoot
+
+        Write-Log "Let's pick the camera to use." "Cyan"
+        Select-CameraInto -EnvPath $envAtRoot
 
         Write-Log "Opening .env in Notepad. Fill in SMTP/IMAP credentials, save, close." "Yellow"
         Start-Process notepad.exe -ArgumentList $envAtRoot -Wait
