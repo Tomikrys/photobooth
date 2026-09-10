@@ -279,7 +279,15 @@ function Start-Child {
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError  = $true
     $psi.CreateNoWindow         = $true
-    foreach ($a in $ArgumentList) { $psi.ArgumentList.Add($a) }
+
+    # PS 5.1 lacks ProcessStartInfo.ArgumentList - use .Arguments (single string).
+    # Quote every arg so paths with spaces (Program Files, OneDrive - SAP SE, ...) survive.
+    if ($ArgumentList.Count -gt 0) {
+        $quoted = foreach ($a in $ArgumentList) {
+            if ($a -match '\s|"') { '"' + ($a -replace '"', '\"') + '"' } else { $a }
+        }
+        $psi.Arguments = ($quoted -join ' ')
+    }
 
     $proc = [System.Diagnostics.Process]::Start($psi)
 
