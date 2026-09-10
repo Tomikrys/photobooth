@@ -45,11 +45,24 @@ def index():
 
 @flask_app.route("/photos/processed/<path:filename>")
 def serve_processed_photo(filename):
+    full = Path(config.PROCESSED_DIR) / filename
+    if not full.exists():
+        log.warning("processed 404: %s (looked at %s)", filename, full)
     return send_from_directory(config.PROCESSED_DIR, filename)
 
 
 @flask_app.route("/photos/thumbs/<path:filename>")
 def serve_thumb(filename):
+    # Fall back to the fullres file when the thumbnail is missing for any
+    # reason (thumb not generated yet, deleted, older photo that predates the
+    # thumbs folder). Better a slightly-larger image than a broken tile.
+    thumb_full = Path(config.THUMBS_DIR) / filename
+    if not thumb_full.exists():
+        processed_full = Path(config.PROCESSED_DIR) / filename
+        if processed_full.exists():
+            log.info("thumb missing, serving fullres: %s", filename)
+            return send_from_directory(config.PROCESSED_DIR, filename)
+        log.warning("thumb 404: %s (neither %s nor fullres exists)", filename, thumb_full)
     return send_from_directory(config.THUMBS_DIR, filename)
 
 
