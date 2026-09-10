@@ -55,30 +55,47 @@ A wedding photo-booth web app. Runs on a laptop connected to a Canon SELPHY dye-
 
 ## Installation
 
-### macOS
+### Windows (operator)
+
+You should end up with a project folder that looks like this:
+
+```
+photobooth\
+  Photobooth.exe   ← double-click to run
+  Build.bat        ← run once to build Photobooth.exe (first-time only)
+  .env             ← your credentials (created on first run)
+  photos\          ← where your pictures live
+  README.md
+  src\             ← source; you don't need to open it
+```
+
+**One-time setup:**
+
+1. Install **Python 3.11 or 3.12** from https://python.org — during install, check **"Add python.exe to PATH"**. (Avoid 3.14 on Windows for now; `pywin32` wheels lag.)
+2. Install the **Canon SELPHY CP1500 driver** from Canon's site. In **Settings → Printers & scanners**, note the *exact* printer name — you'll paste it into `.env`.
+3. Copy the project folder onto the laptop (via git clone, USB stick, or however).
+4. **Double-click `Build.bat`.** It auto-installs the PS2EXE PowerShell module and compiles `Photobooth.exe` into the project root. First run only — after that you can delete Build.bat if you want.
+
+**Every time after that:** double-click **`Photobooth.exe`**. On first run it:
+
+- Copies `src\.env.example` → `.env` and opens it in Notepad. Fill in printer name, SMTP/IMAP credentials, save, close.
+- Creates the Python venv (`src\venv\`) and installs dependencies. Takes ~1 minute.
+- Creates the `photos\` subfolders.
+- Starts the Nikon camera importer and the Flask server.
+- Opens `http://localhost:5001` in your browser.
+
+Subsequent runs skip setup and start everything in ~2 seconds. Close the console window (or Ctrl+C) to shut down cleanly.
+
+### macOS (development)
 
 ```bash
 git clone https://github.com/Tomikrys/photobooth.git
 cd photobooth
-cp .env.example .env      # then edit with real credentials — see below
-./run.sh
+cp src/.env.example .env      # then edit with real credentials — see below
+./src/run.sh
 ```
 
-### Windows
-
-1. Install **Python 3.11 or 3.12** from https://python.org — during install, check **"Add python.exe to PATH"**. (Avoid 3.14 on Windows for now; `pywin32` wheels lag.)
-2. Install **Git for Windows** — https://git-scm.com/download/win
-3. Install the **Canon SELPHY CP1500 driver** from Canon's site. After install, open **Settings → Printers & scanners** and note the *exact* printer name — you'll need it in `.env`.
-4. Clone and configure:
-   ```powershell
-   git clone https://github.com/Tomikrys/photobooth.git C:\photobooth
-   cd C:\photobooth
-   copy .env.example .env
-   notepad .env
-   ```
-5. Double-click **`run.bat`**. On first run it creates the venv, installs dependencies, creates photo folders, and starts the server. Subsequent runs skip the install step.
-
-Open http://localhost:5001 in a browser.
+There is no `.exe` on macOS — the Nikon-over-MTP importer is Windows-only anyway.
 
 ---
 
@@ -124,28 +141,36 @@ Seznam's regular login password will **not** work over SMTP/IMAP. Generate an ap
 
 ## Running
 
-- **Mac**: `./run.sh`
-- **Windows**: double-click `run.bat`
+- **Windows**: double-click **`Photobooth.exe`** at the project root. It starts the Nikon MTP importer, the Flask server, and opens the browser automatically. Ctrl+C in the console (or closing it) stops everything.
+- **macOS**: `./src/run.sh` from the project root. Starts the Flask server only (no Nikon importer on macOS).
 
-The server listens on `0.0.0.0:5001`. Override with `PORT=8080 ./run.sh` on Mac or set `PORT` in `.env` on Windows.
-
-Any device on the same Wi-Fi can view the gallery at `http://<laptop-ip>:5001`. On Windows, allow Python through the firewall when prompted on first run.
+The server listens on `0.0.0.0:5001`. Any device on the same Wi-Fi can view the gallery at `http://<laptop-ip>:5001`. On Windows, allow Python through the firewall when prompted on first run.
 
 ---
 
 ## Feeding photos in
 
-Three ways for a photo to reach the gallery — all end up in `photos/camera/` and the watcher handles the rest.
+Four ways for a photo to reach the gallery — all end up in `photos/camera/` and the watcher handles the rest.
 
-### 1. Camera with Wi-Fi folder sync
+### 1. Nikon over USB (MTP) — Windows only
+
+Plug the Nikon D3100 (or a compatible Nikon body — pattern is `100D3100` under DCIM) into the laptop with a USB cable. The MTP importer bundled into `Photobooth.exe` polls the camera every 2 seconds, moves any new photos off the SD card into `photos/camera/`, and renames each to a millisecond-precision timestamp (`yyyyMMdd_HHmmss_fff.NEF`) so nothing can ever overwrite an existing photo. Files that arrive during a crashed run are recovered on next startup (`.mtp_temp/` sweep).
+
+The importer is `src/NikonMove.ps1` — Photobooth.exe spawns it. Runs standalone too:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File src\NikonMove.ps1
+```
+
+### 2. Camera with Wi-Fi folder sync
 
 Configure your camera (or the Canon Camera Connect app / Sony Imaging Edge / etc.) to save photos into `photos/camera/` on the laptop. Any new JPEG/PNG/HEIC/TIFF/WebP appearing there is picked up within ~1 second.
 
-### 2. Email attachments
+### 3. Email attachments
 
 Guests email photos to the address in `IMAP_USER`. Every 30 seconds `inbox_poller.py` fetches UNSEEN messages, saves any image attachment into `photos/camera/`, and marks the message SEEN.
 
-### 3. Manual drop
+### 4. Manual drop
 
 Just drag any supported image file into `photos/camera/`. Supported: `.jpg`, `.jpeg`, `.png`, `.heic`, `.heif`, `.tiff`, `.tif`, `.webp`.
 
@@ -172,6 +197,7 @@ Pre-existing files in `camera/` at startup are also processed (watchdog only fir
 ### Tests
 
 ```bash
+cd src
 source venv/bin/activate
 pytest -q
 ```
@@ -182,21 +208,32 @@ pytest -q
 
 ```
 photobooth/
-├── app.py              # Flask + Socket.IO routes, wires everything together
-├── config.py           # loads .env, exports constants
-├── watcher.py          # watchdog observer + process_image (crop, thumb, backup)
-├── inbox_poller.py     # IMAP polling loop
-├── mailer.py           # send_email with multi-recipient split
-├── printer.py          # subprocess `lp` on macOS/Linux, win32print on Windows
-├── static/
-│   ├── index.html      # single-page UI
-│   └── app.js          # gallery, lightbox, socket handlers, email modal
-├── tests/              # pytest suite (18 tests)
-├── run.sh              # macOS/Linux launcher
-├── run.bat             # Windows launcher
-├── requirements.txt
-└── .env                # (git-ignored) real credentials
+├── Photobooth.exe          # built launcher — the ONE file the operator runs
+├── Build.bat               # first-time build (calls src/Build.ps1)
+├── .env                    # (git-ignored) real credentials, at root
+├── photos/                 # all photo folders (ingest, raw, processed, ...)
+├── README.md
+└── src/                    # everything the operator doesn't need to see
+    ├── Photobooth.ps1      # launcher source → compiled to ../Photobooth.exe
+    ├── NikonMove.ps1       # Nikon MTP importer (spawned by launcher)
+    ├── Build.ps1           # compiles Photobooth.ps1 with PS2EXE
+    ├── app.py              # Flask + Socket.IO routes
+    ├── config.py           # loads .env, exports constants
+    ├── watcher.py          # watchdog observer + process_image
+    ├── inbox_poller.py     # IMAP polling loop
+    ├── mailer.py           # send_email with multi-recipient split
+    ├── printer.py          # subprocess `lp` on macOS/Linux, win32print on Windows
+    ├── email_queue.py      # offline email queue
+    ├── static/             # single-page UI (index.html, app.js)
+    ├── tests/              # pytest suite
+    ├── run.sh              # macOS/Linux dev launcher
+    ├── conftest.py
+    ├── requirements.txt
+    ├── .env.example
+    └── venv/               # (git-ignored) Python virtual environment
 ```
+
+**Path convention:** the launcher always sets CWD to the project root before spawning `app.py` / `NikonMove.ps1`, so every relative path in the code (`./photos/camera`, `./.env`, `./photos/email_queue.json`) resolves at the root — even though the Python and PowerShell source lives one level down in `src/`.
 
 ### Adding a feature
 
@@ -220,7 +257,7 @@ photobooth/
 | **Broken-image icon in error toast** | Fixed — `showToastMsg` now hides the thumbnail slot instead of setting empty `src`. |
 | **App can't find `pywin32` on Windows** | Only installs from `requirements.txt` when `sys_platform == "win32"`. Make sure you're on Python 3.11 or 3.12 x64; pywin32 wheels for 3.14 may not exist yet. |
 
-Logs go to stdout; Windows users, keep the `run.bat` console window open to read errors (there's a `pause` at the end so it won't vanish).
+Logs go to stdout in the console window `Photobooth.exe` opens; keep it visible during the wedding so you can read errors. Close the window (or Ctrl+C) to stop everything.
 
 ---
 
