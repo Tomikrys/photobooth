@@ -98,7 +98,7 @@ function Wait-ForStableFile {
     param(
         [Parameter(Mandatory)][string]$Path,
         [int]$TimeoutMs = 15000,
-        [int]$PollMs = 200
+        [int]$PollMs = 100
     )
     $elapsed = 0
     $lastSize = -1
@@ -192,16 +192,16 @@ try {
             }
 
             $storage      = $camera.GetFolder.Items() | Where-Object { $_.Name -like "*Removable storage*" } | Select-Object -First 1
-            if (-not $storage) { Start-Sleep -Seconds 2; continue }
+            if (-not $storage) { Start-Sleep -Milliseconds 500; continue }
 
             $dcim         = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" } | Select-Object -First 1
-            if (-not $dcim) { Start-Sleep -Seconds 2; continue }
+            if (-not $dcim) { Start-Sleep -Milliseconds 500; continue }
 
             $sourceFolder = $dcim.GetFolder.Items() | Where-Object { $_.Name -eq $FolderPattern } | Select-Object -First 1
-            if (-not $sourceFolder) { Start-Sleep -Seconds 2; continue }
+            if (-not $sourceFolder) { Start-Sleep -Milliseconds 500; continue }
 
             $cameraFiles = @($sourceFolder.GetFolder.Items())
-            if ($cameraFiles.Count -eq 0) { Start-Sleep -Seconds 2; continue }
+            if ($cameraFiles.Count -eq 0) { Start-Sleep -Milliseconds 500; continue }
 
             foreach ($file in $cameraFiles) {
                 $originalName = $file.Name
@@ -293,7 +293,7 @@ try {
             }
         }
 
-        Start-Sleep -Seconds 2
+        Start-Sleep -Milliseconds 300
     }
 } finally {
     # Best-effort COM cleanup on Ctrl+C / exit
