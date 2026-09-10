@@ -223,10 +223,23 @@ try {
                 }
 
                 # MTP move to per-transfer folder. Flag 20 = 16 (Yes to All) + 4 (no progress dialog).
-                try {
-                    $transferShellFolder.MoveHere($file, 20)
-                } catch {
-                    Write-Log "  -> MTP MoveHere failed: $($_.Exception.Message)" "Red"
+                # "Resource in use" is transient (camera still flushing to SD); retry with backoff.
+                $moveOk = $false
+                for ($mtpAttempt = 0; $mtpAttempt -lt 10 -and -not $moveOk; $mtpAttempt++) {
+                    try {
+                        $transferShellFolder.MoveHere($file, 20)
+                        $moveOk = $true
+                    } catch {
+                        $errMsg = $_.Exception.Message
+                        if ($mtpAttempt -lt 9) {
+                            Write-Log "  -> MTP MoveHere attempt $($mtpAttempt+1) failed ('$errMsg'), retrying in 2s..." "DarkYellow"
+                            Start-Sleep -Seconds 2
+                        } else {
+                            Write-Log "  -> MTP MoveHere failed after 10 attempts: $errMsg" "Red"
+                        }
+                    }
+                }
+                if (-not $moveOk) {
                     Remove-Item -LiteralPath $transferDir -Recurse -Force -ErrorAction SilentlyContinue
                     continue
                 }
