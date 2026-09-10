@@ -242,6 +242,14 @@ try {
                         $moveOk = $true
                     } catch {
                         $errMsg = $_.Exception.Message
+                        # "Element not found" means the file vanished from the camera between
+                        # listing and moving (already transferred, or camera ejected mid-loop).
+                        # Treat it as a clean skip rather than a retry-worthy error.
+                        if ($errMsg -like "*Element not found*") {
+                            Write-Log "  -> $originalName no longer on camera (already moved?), skipping." "DarkYellow"
+                            $moveOk = $true  # don't retry, don't log as failure
+                            break
+                        }
                         if ($mtpAttempt -lt 9) {
                             Write-Log "  -> MTP MoveHere attempt $($mtpAttempt+1) failed ('$errMsg'), retrying in 2s..." "DarkYellow"
                             Start-Sleep -Seconds 2
@@ -256,6 +264,12 @@ try {
                 }
 
                 $tempFilePath = Join-Path -Path $transferDir -ChildPath $originalName
+
+                # If the file never landed (e.g. "Element not found" skip above), clean up and move on.
+                if (-not (Test-Path -LiteralPath $tempFilePath)) {
+                    Remove-Item -LiteralPath $transferDir -Recurse -Force -ErrorAction SilentlyContinue
+                    continue
+                }
 
                 # Wait for the file to actually land AND finish being written.
                 if (-not (Wait-ForStableFile -Path $tempFilePath -TimeoutMs 20000 -PollMs 200)) {
