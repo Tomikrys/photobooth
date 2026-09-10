@@ -119,9 +119,16 @@ def api_hide():
 
 
 def on_new_photo(result: dict):
+    fullres_name = Path(result["fullres"]).name
+    thumb_path = Path(result["thumb"])
+    thumb_url = (
+        f"/photos/thumbs/{thumb_path.name}"
+        if thumb_path.exists()
+        else f"/photos/processed/{fullres_name}"
+    )
     socketio.emit("new_photo", {
-        "filename": Path(result["fullres"]).name,
-        "thumb": f"/photos/thumbs/{Path(result['thumb']).name}",
+        "filename": fullres_name,
+        "thumb": thumb_url,
         "timestamp": Path(result["fullres"]).stat().st_mtime,
     })
 

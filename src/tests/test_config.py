@@ -24,7 +24,9 @@ def test_config_loads_all_keys():
         assert config.PRINTER_NAME == "Canon SELPHY CP1500"
         assert config.SMTP_PORT == 465
         assert config.IMAP_POLL_INTERVAL == 30
-        assert config.RAW_DIR == "./photos/raw"
+        # Paths are anchored to CWD at import time; check suffix, not exact string.
+        assert os.path.isabs(config.RAW_DIR)
+        assert config.RAW_DIR.replace(os.sep, "/").endswith("/photos/raw")
 
 def test_missing_required_key_raises():
     env = {
