@@ -34,7 +34,7 @@ $ErrorActionPreference = "Stop"
 # LOCATE ROOT + SRC
 # ------------------------------------------
 # When compiled with PS2EXE and placed at the project root, the .exe's own
-# directory IS the project root — src/ sits beside it. When running the .ps1
+# directory IS the project root - src/ sits beside it. When running the .ps1
 # directly during development, the script lives inside src/ and root is one
 # level up. Detect both cases.
 $scriptDir = $PSScriptRoot
@@ -140,7 +140,7 @@ function Select-PrinterInto {
                 Write-Log "PRINTER_NAME set to '$default' (system default)." "Green"
                 return
             }
-            Write-Host "No default printer available — please enter a number." -ForegroundColor Yellow
+            Write-Host "No default printer available - please enter a number." -ForegroundColor Yellow
             continue
         }
 
@@ -169,7 +169,7 @@ $envExample = Join-Path $srcDir  ".env.example"
 if (-not (Test-Path -LiteralPath $envAtRoot)) {
     if (Test-Path -LiteralPath $envExample) {
         Copy-Item -LiteralPath $envExample -Destination $envAtRoot
-        Write-Log ".env not found — copied from src\.env.example." "Yellow"
+        Write-Log ".env not found - copied from src\.env.example." "Yellow"
 
         Write-Log "Let's pick the printer to use." "Cyan"
         Select-PrinterInto -EnvPath $envAtRoot
@@ -258,7 +258,7 @@ $nikonScript = Join-Path $srcDir "NikonMove.ps1"
 $appScript   = Join-Path $srcDir "app.py"
 
 if (-not (Test-Path -LiteralPath $appScript)) {
-    Write-Log "app.py not found at $appScript — cannot start Flask server." "Red"
+    Write-Log "app.py not found at $appScript - cannot start Flask server." "Red"
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -318,7 +318,7 @@ if (Test-Path -LiteralPath $nikonScript) {
         Write-Log "Failed to start NikonMove.ps1: $($_.Exception.Message)" "Red"
     }
 } else {
-    Write-Log "src\NikonMove.ps1 not found — skipping camera importer." "Yellow"
+    Write-Log "src\NikonMove.ps1 not found - skipping camera importer." "Yellow"
 }
 
 # app.py uses ./photos/* relative to CWD, and Flask's static_folder="static"
@@ -359,7 +359,7 @@ try {
                 $tcp.Close()
             } catch {}
             if ($listening) {
-                Write-Log "Server is up — opening http://localhost:$AppPort" "Green"
+                Write-Log "Server is up - opening http://localhost:$AppPort" "Green"
                 Start-Process "http://localhost:$AppPort" | Out-Null
                 $openedBrowser = $true
             } elseif (((Get-Date) - $serverStartedAt).TotalSeconds -gt 30) {
@@ -373,7 +373,7 @@ try {
             if ($c.Process.HasExited) {
                 Write-Log "$($c.Name) exited (code $($c.Process.ExitCode))." "Red"
                 if ($c.Name -eq "APP") {
-                    Write-Log "Flask app died — shutting everything down." "Red"
+                    Write-Log "Flask app died - shutting everything down." "Red"
                     throw "Flask app exited unexpectedly."
                 }
             } else {

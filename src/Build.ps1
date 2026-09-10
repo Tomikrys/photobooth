@@ -25,14 +25,14 @@ function Write-Section { param([string]$Msg) Write-Host "`n=== $Msg ===" -Foregr
 # ------------------------------------------
 Write-Section "Checking PS2EXE"
 if (-not (Get-Command Invoke-PS2EXE -ErrorAction SilentlyContinue)) {
-    Write-Host "PS2EXE not found — installing from PSGallery (current user only)..." -ForegroundColor Yellow
+    Write-Host "PS2EXE not found - installing from PSGallery (current user only)..." -ForegroundColor Yellow
 
     try {
         if ((Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue).InstallationPolicy -ne "Trusted") {
             Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
         }
     } catch {
-        Write-Host "Note: Could not mark PSGallery as trusted — you may be prompted to confirm." -ForegroundColor DarkYellow
+        Write-Host "Note: Could not mark PSGallery as trusted - you may be prompted to confirm." -ForegroundColor DarkYellow
     }
 
     try {
