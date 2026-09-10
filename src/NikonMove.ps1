@@ -42,6 +42,12 @@ if (Test-Path -LiteralPath $envPath) {
                     Write-Log "Warning: Could not resolve CAMERA_DIR '$rawPath'. Using fallback." "Yellow"
                 }
             }
+            if ($key -eq "CAMERA_NAME" -and $value) {
+                $CameraName = $value.Trim('"').Trim("'")
+            }
+            if ($key -eq "CAMERA_FOLDER_PATTERN" -and $value) {
+                $FolderPattern = $value.Trim('"').Trim("'")
+            }
         }
     } catch {
         Write-Log "Warning: Failed to read .env ($($_.Exception.Message)). Using fallback path." "Yellow"
