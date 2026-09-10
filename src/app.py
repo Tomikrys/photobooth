@@ -139,6 +139,10 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
 
+    log.info("Serving processed from: %s", config.PROCESSED_DIR)
+    log.info("Serving thumbs    from: %s", config.THUMBS_DIR)
+    log.info("Watching camera   dir : %s", config.CAMERA_DIR)
+
     watcher = PhotoWatcher(on_new_photo)
     watcher.start()
 

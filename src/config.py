@@ -1,15 +1,22 @@
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+log = logging.getLogger(__name__)
 
-# Anchor all photo paths to the process CWD at import time. The launcher sets
-# CWD = project root before spawning app.py, so relative paths from .env
-# resolve there. Freezing to absolute here means later CWD changes (e.g. if a
-# subprocess or library calls os.chdir) can't break send_from_directory or
-# watcher writes.
-_ROOT = Path.cwd().resolve()
+# Project root = the folder that CONTAINS src/. config.py lives at src/config.py,
+# so root is __file__.parent.parent. This is deterministic regardless of the
+# process CWD, which the Windows launcher and dev run.sh both set differently.
+_ROOT = Path(__file__).resolve().parent.parent
+
+# Load .env from the project root first, then fall back to load_dotenv's default
+# search (walks up from CWD). Explicit path avoids surprises when CWD != root.
+_env_at_root = _ROOT / ".env"
+if _env_at_root.exists():
+    load_dotenv(_env_at_root)
+else:
+    load_dotenv()
 
 def _abs(p: str) -> str:
     path = Path(p)
@@ -33,3 +40,9 @@ THUMBS_DIR = _abs(os.environ.get("THUMBS_DIR", "./photos/processed/thumbs"))
 PRINTED_DIR = _abs(os.environ.get("PRINTED_DIR", "./photos/printed"))
 HIDDEN_DIR = _abs(os.environ.get("HIDDEN_DIR", "./photos/hidden"))
 EMAIL_QUEUE_PATH = _abs(os.environ.get("EMAIL_QUEUE_PATH", "./photos/email_queue.json"))
+
+# One-shot log line so the console shows exactly where the app is reading/writing.
+log.info(
+    "config: root=%s processed=%s thumbs=%s",
+    _ROOT, PROCESSED_DIR, THUMBS_DIR,
+)
