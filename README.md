@@ -78,7 +78,10 @@ photobooth\
 
 **Every time after that:** double-click **`Photobooth.exe`**. On first run it:
 
-- Copies `src\.env.example` → `.env` and opens it in Notepad. Fill in printer name, SMTP/IMAP credentials, save, close.
+- Copies `src\.env.example` → `.env`.
+- Asks you to pick a **printer** from the list of installed printers.
+- Asks you to pick a **camera** from the list of connected MTP devices (auto-detects the DCIM folder pattern — connect the camera before launching for best results).
+- Opens `.env` in Notepad — fill in SMTP/IMAP credentials, save, close.
 - Creates the Python venv (`src\venv\`) and installs dependencies. Takes ~1 minute.
 - Creates the `photos\` subfolders.
 - Starts the Nikon camera importer and the Flask server.
@@ -104,7 +107,7 @@ There is no `.exe` on macOS — the Nikon-over-MTP importer is Windows-only anyw
 Everything is driven by `.env`. This file is git-ignored — never commit it.
 
 ```dotenv
-# Printer — the name CUPS (macOS) or Windows shows for the SELPHY
+# Printer — picked interactively on first run; edit to change
 PRINTER_NAME=Canon SELPHY CP1500
 
 # Outgoing mail (Seznam.cz)
@@ -118,6 +121,10 @@ IMAP_SERVER=imap.seznam.cz
 IMAP_USER=eliskatom2026@seznam.cz
 IMAP_PASS=<app-specific-password>
 IMAP_POLL_INTERVAL=30
+
+# Camera — picked interactively on first run; edit to change
+CAMERA_NAME=D3100
+CAMERA_FOLDER_PATTERN=100D3100
 
 # Photo folder layout (relative to project root)
 CAMERA_DIR=./photos/camera
@@ -161,7 +168,9 @@ Four ways for a photo to reach the gallery — all end up in `photos/camera/` an
 
 ### 1. Nikon over USB (MTP) — Windows only
 
-Plug the Nikon D3100 (or a compatible Nikon body — pattern is `100D3100` under DCIM) into the laptop with a USB cable. The MTP importer bundled into `Photobooth.exe` polls the camera every 2 seconds, moves any new photos off the SD card into `photos/camera/`, and renames each to a millisecond-precision timestamp (`yyyyMMdd_HHmmss_fff.NEF`) so nothing can ever overwrite an existing photo. Files that arrive during a crashed run are recovered on next startup (`.mtp_temp/` sweep).
+Plug the Nikon into the laptop with a USB cable. The MTP importer polls the camera, moves new photos off the SD card into `photos/camera/`, and renames each to a millisecond-precision timestamp (`yyyyMMdd_HHmmss_fff.jpg`) so nothing can ever overwrite an existing photo. The camera model and DCIM folder pattern are set in `.env` (`CAMERA_NAME`, `CAMERA_FOLDER_PATTERN`) and auto-detected on first run. Files that arrive during a crashed run are recovered on next startup (`.mtp_temp/` sweep).
+
+Expected latency: **3–4 seconds** shutter-to-gallery (hardware floor — the D3100 takes ~2s to flush the JPEG and expose it over MTP).
 
 The importer is `src/NikonMove.ps1` — Photobooth.exe spawns it. Runs standalone too:
 
@@ -260,10 +269,10 @@ photobooth/
 | **Print fails: `lp: No such file or directory`** | Printer isn't installed in the OS. Verify with `lpstat -p` (Mac) or `Get-Printer` (Win). Fix `PRINTER_NAME` to match exactly. |
 | **Print fails: `client-error-not-possible`** | Wrong paper type or printer offline. Check the SELPHY has a paper cartridge and dye ribbon and is powered on. |
 | **Email fails: `Authentication failed`** | You're using the regular Seznam password. Generate an app-specific password (see [Configuration](#seznamcz-app-specific-passwords)). |
-| **No new photos appear** | Check `photos/camera/` — files should vanish within 1–2 seconds. If they stay: check the log for `Failed to process`. Corrupt files go to `photos/hidden/`. |
-| **Two pre-existing PNGs weren't picked up** | Fixed — `PhotoWatcher.start()` now sweeps existing files. Restart the server. |
-| **Gallery doesn't update in real time** | Socket.IO connection dropped. Check browser console; the CDN URL for socket.io must be reachable (needs internet). If offline, self-host socket.io. |
-| **Broken-image icon in error toast** | Fixed — `showToastMsg` now hides the thumbnail slot instead of setting empty `src`. |
+| **No new photos appear** | Check `photos/camera/` — files should vanish within a few seconds. If they stay: check the log for `Failed to process`. Corrupt files go to `photos/hidden/`. |
+| **NIKON: "resource in use" / retrying** | Normal — the D3100 locks the file while writing to SD. The importer retries up to 10× with 2s gaps; it resolves itself. |
+| **NIKON: camera not detected** | USB disconnected or MTP not selected on the camera body. Unplug and re-plug, or go to *Camera menu → USB → MTP*. |
+| **Gallery doesn't show new photo** | Socket.IO event was missed (race at startup). The gallery auto-polls every 10s — photo will appear within 10s. |
 | **App can't find `pywin32` on Windows** | Only installs from `requirements.txt` when `sys_platform == "win32"`. Make sure you're on Python 3.11 or 3.12 x64; pywin32 wheels for 3.14 may not exist yet. |
 
 Logs go to stdout in the console window `Photobooth.exe` opens; keep it visible during the wedding so you can read errors. Close the window (or Ctrl+C) to stop everything.
