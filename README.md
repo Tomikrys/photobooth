@@ -134,8 +134,15 @@ Seznam's regular login password will **not** work over SMTP/IMAP. Generate an ap
 
 ### Printer name
 
-- **macOS**: run `lpstat -p` and copy the exact name (spaces become underscores automatically, e.g. `Canon_SELPHY_CP1500`).
-- **Windows**: **Settings → Printers & scanners** → open the printer → the name at the top is what you want (usually just `Canon SELPHY CP1500`).
+Two helper scripts print the list of installed printers so you can copy the exact name into `PRINTER_NAME`:
+
+- **Windows**: double-click **`src\list-printers.bat`**.
+- **macOS/Linux**: run **`./src/list-printers.sh`** from the project root.
+
+Or do it by hand:
+
+- **macOS**: `lpstat -p` — spaces become underscores automatically, e.g. `Canon_SELPHY_CP1500`.
+- **Windows**: **Settings → Printers & scanners** → open the printer → the name at the top (usually just `Canon SELPHY CP1500`).
 
 ---
 
@@ -227,6 +234,8 @@ photobooth/
     ├── static/             # single-page UI (index.html, app.js)
     ├── tests/              # pytest suite
     ├── run.sh              # macOS/Linux dev launcher
+    ├── list-printers.bat   # Windows: print list of installed printers
+    ├── list-printers.sh    # macOS/Linux: same, via CUPS
     ├── conftest.py
     ├── requirements.txt
     ├── .env.example
