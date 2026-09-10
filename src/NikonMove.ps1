@@ -166,42 +166,47 @@ Write-Log "[Listening] Monitoring camera folder for new photos... Press Ctrl+C t
 $cameraWasConnected = $null   # tri-state: $null (unknown), $true, $false
 $lastErrorMessage   = $null
 $lastErrorAt        = [datetime]::MinValue
+$sourceFolder       = $null   # cached MTP folder reference — re-resolved on connect/error
 
 try {
     while ($true) {
         try {
-            $myComputer = $shell.Namespace(0x11)
-            if (-not $myComputer) {
-                throw "Could not access 'This PC' shell namespace (0x11)."
-            }
-
-            $camera = $myComputer.Items() | Where-Object { $_.Name -like "*$CameraName*" } | Select-Object -First 1
-
-            if (-not $camera) {
-                if ($cameraWasConnected -ne $false) {
-                    Write-Log "Camera '$CameraName' not detected. Waiting..." "DarkYellow"
-                    $cameraWasConnected = $false
+            # Re-resolve the full MTP tree only when we don't have a cached reference.
+            # On a connected, idle camera this avoids 5 COM traversals every 300ms.
+            if (-not $sourceFolder) {
+                $myComputer = $shell.Namespace(0x11)
+                if (-not $myComputer) {
+                    throw "Could not access 'This PC' shell namespace (0x11)."
                 }
-                Start-Sleep -Seconds 2
-                continue
+
+                $camera = $myComputer.Items() | Where-Object { $_.Name -like "*$CameraName*" } | Select-Object -First 1
+
+                if (-not $camera) {
+                    if ($cameraWasConnected -ne $false) {
+                        Write-Log "Camera '$CameraName' not detected. Waiting..." "DarkYellow"
+                        $cameraWasConnected = $false
+                    }
+                    Start-Sleep -Seconds 2
+                    continue
+                }
+
+                $storage = $camera.GetFolder.Items() | Where-Object { $_.Name -like "*Removable storage*" } | Select-Object -First 1
+                if (-not $storage) { Start-Sleep -Milliseconds 500; continue }
+
+                $dcim = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" } | Select-Object -First 1
+                if (-not $dcim) { Start-Sleep -Milliseconds 500; continue }
+
+                $sourceFolder = $dcim.GetFolder.Items() | Where-Object { $_.Name -eq $FolderPattern } | Select-Object -First 1
+                if (-not $sourceFolder) { Start-Sleep -Milliseconds 500; continue }
+
+                if ($cameraWasConnected -ne $true) {
+                    Write-Log "Camera '$CameraName' connected." "Green"
+                    $cameraWasConnected = $true
+                }
             }
-
-            if ($cameraWasConnected -ne $true) {
-                Write-Log "Camera '$CameraName' connected." "Green"
-                $cameraWasConnected = $true
-            }
-
-            $storage      = $camera.GetFolder.Items() | Where-Object { $_.Name -like "*Removable storage*" } | Select-Object -First 1
-            if (-not $storage) { Start-Sleep -Milliseconds 500; continue }
-
-            $dcim         = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" } | Select-Object -First 1
-            if (-not $dcim) { Start-Sleep -Milliseconds 500; continue }
-
-            $sourceFolder = $dcim.GetFolder.Items() | Where-Object { $_.Name -eq $FolderPattern } | Select-Object -First 1
-            if (-not $sourceFolder) { Start-Sleep -Milliseconds 500; continue }
 
             $cameraFiles = @($sourceFolder.GetFolder.Items())
-            if ($cameraFiles.Count -eq 0) { Start-Sleep -Milliseconds 500; continue }
+            if ($cameraFiles.Count -eq 0) { Start-Sleep -Milliseconds 300; continue }
 
             foreach ($file in $cameraFiles) {
                 $originalName = $file.Name
@@ -291,6 +296,8 @@ try {
                 $lastErrorMessage = $msg
                 $lastErrorAt = $now
             }
+            # Invalidate cached folder — force full re-walk on next iteration
+            $sourceFolder = $null
         }
 
         Start-Sleep -Milliseconds 300
