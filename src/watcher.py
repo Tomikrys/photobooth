@@ -34,7 +34,7 @@ def _centre_crop(img: Image.Image) -> Image.Image:
     return img.crop((left, top, left + target_w, top + target_h))
 
 
-def _wait_for_stable_size(path: Path, timeout: float = 10.0, poll: float = 0.2) -> bool:
+def _wait_for_stable_size(path: Path, timeout: float = 3.0, poll: float = 0.1) -> bool:
     """Wait until file's byte size is stable across two polls (i.e. writer is done)."""
     elapsed = 0.0
     last = -1
@@ -131,7 +131,7 @@ class _Handler(FileSystemEventHandler):
             # 2s debounce — plenty of time for a fresh watchdog event to reset the
             # timer during a multi-second MTP transfer. The stable-size check inside
             # process_image is the real safety net; this just avoids obvious churn.
-            self._pending[event.src_path] = time.time() + 2.0
+            self._pending[event.src_path] = time.time() + 0.5
 
     on_created = on_modified
 
