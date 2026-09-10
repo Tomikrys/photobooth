@@ -69,6 +69,93 @@ function Test-CommandExists {
     try { Get-Command $Name -ErrorAction Stop | Out-Null; return $true } catch { return $false }
 }
 
+# Rewrites a single KEY=VALUE line in a dotenv file (adds the line if missing).
+# Preserves other lines, quoting, and trailing newlines.
+function Set-EnvValue {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)][string]$Value
+    )
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    $lines = Get-Content -LiteralPath $Path
+    $found = $false
+    $newLines = foreach ($line in $lines) {
+        if ($line -match "^\s*$([regex]::Escape($Key))\s*=") {
+            $found = $true
+            "$Key=$Value"
+        } else {
+            $line
+        }
+    }
+    if (-not $found) { $newLines = @($newLines) + "$Key=$Value" }
+    Set-Content -LiteralPath $Path -Value $newLines -Encoding UTF8
+}
+
+# Interactive printer picker. Lists installed printers, lets the operator type a
+# number, and writes PRINTER_NAME=... into the given .env file. Enter with no
+# input picks the Windows default printer.
+function Select-PrinterInto {
+    param([Parameter(Mandatory)][string]$EnvPath)
+
+    $printers = @()
+    try {
+        $printers = @(Get-Printer -ErrorAction Stop | Sort-Object Name)
+    } catch {
+        Write-Log "Could not enumerate printers ($($_.Exception.Message)). Edit PRINTER_NAME by hand in Notepad." "Yellow"
+        return
+    }
+
+    if ($printers.Count -eq 0) {
+        Write-Log "No printers found on this machine. Install the SELPHY driver first, then edit .env by hand." "Yellow"
+        return
+    }
+
+    $default = $null
+    try {
+        $default = (Get-CimInstance -Class Win32_Printer -Filter 'Default = True' -ErrorAction Stop).Name
+    } catch {}
+
+    Write-Host ""
+    Write-Host "Available printers:" -ForegroundColor Cyan
+    for ($i = 0; $i -lt $printers.Count; $i++) {
+        $marker = if ($default -and $printers[$i].Name -eq $default) { " (default)" } else { "" }
+        Write-Host ("  [{0}] {1}{2}" -f ($i + 1), $printers[$i].Name, $marker)
+    }
+    Write-Host ""
+
+    $prompt = if ($default) {
+        "Pick a number (or press Enter for the default: $default)"
+    } else {
+        "Pick a number"
+    }
+
+    while ($true) {
+        $answer = Read-Host $prompt
+        $answer = if ($answer) { $answer.Trim() } else { "" }
+
+        if (-not $answer) {
+            if ($default) {
+                Set-EnvValue -Path $EnvPath -Key "PRINTER_NAME" -Value $default
+                Write-Log "PRINTER_NAME set to '$default' (system default)." "Green"
+                return
+            }
+            Write-Host "No default printer available — please enter a number." -ForegroundColor Yellow
+            continue
+        }
+
+        $idx = 0
+        if ([int]::TryParse($answer, [ref]$idx) -and $idx -ge 1 -and $idx -le $printers.Count) {
+            $chosen = $printers[$idx - 1].Name
+            Set-EnvValue -Path $EnvPath -Key "PRINTER_NAME" -Value $chosen
+            Write-Log "PRINTER_NAME set to '$chosen'." "Green"
+            return
+        }
+
+        Write-Host "Not a valid choice. Type a number from 1 to $($printers.Count) or press Enter." -ForegroundColor Yellow
+    }
+}
+
 Write-Log "Photobooth launcher starting" "Cyan"
 Write-Log "Root: $rootDir" "Gray"
 Write-Log "Src : $srcDir" "Gray"
@@ -83,7 +170,11 @@ if (-not (Test-Path -LiteralPath $envAtRoot)) {
     if (Test-Path -LiteralPath $envExample) {
         Copy-Item -LiteralPath $envExample -Destination $envAtRoot
         Write-Log ".env not found — copied from src\.env.example." "Yellow"
-        Write-Log "Opening .env in Notepad. Fill in credentials, save, close." "Yellow"
+
+        Write-Log "Let's pick the printer to use." "Cyan"
+        Select-PrinterInto -EnvPath $envAtRoot
+
+        Write-Log "Opening .env in Notepad. Fill in SMTP/IMAP credentials, save, close." "Yellow"
         Start-Process notepad.exe -ArgumentList $envAtRoot -Wait
         Write-Log "Continuing with the .env you just saved..." "Cyan"
     } else {
