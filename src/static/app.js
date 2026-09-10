@@ -276,3 +276,19 @@ function showToastMsg(msg, ok) {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 loadPhotos();
+
+// Poll every 10s as a safety net for missed socket events (e.g. browser opened
+// before the socket handshake completed, or a transient disconnect).
+setInterval(async () => {
+  try {
+    const res = await fetch("/api/photos");
+    const fresh = await res.json();
+    // Only re-render if the set of filenames changed to avoid flicker.
+    const oldKeys = photos.map(p => p.filename).join(",");
+    const newKeys = fresh.map(p => p.filename).join(",");
+    if (oldKeys !== newKeys) {
+      photos = fresh;
+      renderGallery();
+    }
+  } catch (_) {}
+}, 10000);
