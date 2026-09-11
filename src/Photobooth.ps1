@@ -233,7 +233,7 @@ $openUrl         = if ($firstRun) { "http://localhost:$AppPort/config" } else { 
 
 Write-Log "All services launched. Press Ctrl+C to stop." "Green"
 if ($firstRun) {
-    Write-Log "First run — browser will open at /config so you can set up printer, camera, and email." "Yellow"
+    Write-Log "First run - browser will open at /config so you can set up printer, camera, and email." "Yellow"
 }
 
 try {

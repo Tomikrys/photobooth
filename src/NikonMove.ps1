@@ -171,8 +171,8 @@ Write-Log "[Listening] Monitoring camera folder for new photos... Press Ctrl+C t
 $cameraWasConnected = $null   # tri-state: $null (unknown), $true, $false
 $lastErrorMessage   = $null
 $lastErrorAt        = [datetime]::MinValue
-$sourceFolder       = $null   # cached MTP folder reference — re-resolved on connect/error
-$dcimFolder         = $null   # cached DCIM reference — sourceFolder re-fetched each loop from this
+$sourceFolder       = $null   # cached MTP folder reference - re-resolved on connect/error
+$dcimFolder         = $null   # cached DCIM reference - sourceFolder re-fetched each loop from this
 
 try {
     while ($true) {
@@ -210,7 +210,7 @@ try {
                 }
             }
 
-            # Re-resolve sourceFolder every loop — the D3100 MTP layer returns stale
+            # Re-resolve sourceFolder every loop - the D3100 MTP layer returns stale
             # results from a cached COM object, so we must re-enumerate from DCIM each time.
             $sourceFolder = $dcimFolder.GetFolder.Items() | Where-Object { $_.Name -eq $FolderPattern } | Select-Object -First 1
             if (-not $sourceFolder) { Start-Sleep -Milliseconds 500; continue }
@@ -320,7 +320,7 @@ try {
                 $lastErrorMessage = $msg
                 $lastErrorAt = $now
             }
-            # Invalidate cached folders — force full re-walk on next iteration
+            # Invalidate cached folders - force full re-walk on next iteration
             $dcimFolder   = $null
             $sourceFolder = $null
         }
