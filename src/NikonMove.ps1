@@ -173,13 +173,15 @@ $cameraWasConnected = $null   # tri-state: $null (unknown), $true, $false
 $lastErrorMessage   = $null
 $lastErrorAt        = [datetime]::MinValue
 $sourceFolder       = $null   # cached MTP folder reference — re-resolved on connect/error
+$dcimFolder         = $null   # cached DCIM reference — sourceFolder re-fetched each loop from this
 
 try {
     while ($true) {
         try {
-            # Re-resolve the full MTP tree only when we don't have a cached reference.
-            # On a connected, idle camera this avoids 5 COM traversals every 300ms.
-            if (-not $sourceFolder) {
+            # Re-resolve the full MTP tree only when we don't have a cached DCIM reference.
+            # $sourceFolder is re-fetched every loop from $dcimFolder so the D3100's MTP
+            # layer returns a fresh listing rather than a stale cached snapshot.
+            if (-not $dcimFolder) {
                 $myComputer = $shell.Namespace(0x11)
                 if (-not $myComputer) {
                     throw "Could not access 'This PC' shell namespace (0x11)."
@@ -199,17 +201,19 @@ try {
                 $storage = $camera.GetFolder.Items() | Where-Object { $_.Name -like "*Removable storage*" } | Select-Object -First 1
                 if (-not $storage) { Start-Sleep -Milliseconds 500; continue }
 
-                $dcim = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" } | Select-Object -First 1
-                if (-not $dcim) { Start-Sleep -Milliseconds 500; continue }
-
-                $sourceFolder = $dcim.GetFolder.Items() | Where-Object { $_.Name -eq $FolderPattern } | Select-Object -First 1
-                if (-not $sourceFolder) { Start-Sleep -Milliseconds 500; continue }
+                $dcimFolder = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" } | Select-Object -First 1
+                if (-not $dcimFolder) { Start-Sleep -Milliseconds 500; continue }
 
                 if ($cameraWasConnected -ne $true) {
                     Write-Log "Camera '$CameraName' connected." "Green"
                     $cameraWasConnected = $true
                 }
             }
+
+            # Re-resolve sourceFolder every loop — the D3100 MTP layer returns stale
+            # results from a cached COM object, so we must re-enumerate from DCIM each time.
+            $sourceFolder = $dcimFolder.GetFolder.Items() | Where-Object { $_.Name -eq $FolderPattern } | Select-Object -First 1
+            if (-not $sourceFolder) { Start-Sleep -Milliseconds 500; continue }
 
             $cameraFiles = @($sourceFolder.GetFolder.Items())
             if ($cameraFiles.Count -eq 0) { Start-Sleep -Milliseconds 300; continue }
@@ -316,7 +320,8 @@ try {
                 $lastErrorMessage = $msg
                 $lastErrorAt = $now
             }
-            # Invalidate cached folder — force full re-walk on next iteration
+            # Invalidate cached folders — force full re-walk on next iteration
+            $dcimFolder   = $null
             $sourceFolder = $null
         }
 
