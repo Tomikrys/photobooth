@@ -144,6 +144,14 @@ document.getElementById("copies-plus").addEventListener("click", () => {
 // ── Print ──────────────────────────────────────────────────────────────────
 document.getElementById("print-btn").addEventListener("click", async () => {
   const photo = photos[currentIndex];
+  const btn = document.getElementById("print-btn");
+  const spinner = document.getElementById("print-spinner");
+  const label = document.getElementById("print-label");
+
+  btn.disabled = true;
+  spinner.classList.remove("hidden");
+  label.textContent = "Tisknu…";
+
   try {
     const res = await fetch("/api/print", {
       method: "POST",
@@ -151,9 +159,13 @@ document.getElementById("print-btn").addEventListener("click", async () => {
       body: JSON.stringify({ filename: photo.filename, copies: copiesCount }),
     });
     const data = await res.json();
-    showToastMsg(data.ok ? `Tisk zahájen (${copiesCount}×)` : `Chyba tisku: ${data.error}`, data.ok);
+    showToastMsg(data.ok ? `✓ Tisk zahájen (${copiesCount}×)` : `✗ Chyba tisku: ${data.error}`, data.ok);
   } catch (e) {
-    showToastMsg("Chyba připojení k tiskárně", false);
+    showToastMsg("✗ Chyba připojení k tiskárně", false);
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add("hidden");
+    label.textContent = "🖨 TISKNOUT";
   }
 });
 
