@@ -1,31 +1,12 @@
 # ==========================================
-# PHOTOBOOTH ALL-IN-ONE LAUNCHER
+# PHOTOBOOTH LAUNCHER
 # ==========================================
-# Single entry point for the whole photobooth machine:
-#   1. Ensures .env exists at the project root
-#   2. Creates Python venv (in src/venv) + installs requirements if missing
-#   3. Creates all photos/ subfolders at the project root
-#   4. Starts the Nikon MTP importer (src/NikonMove.ps1) in the background
-#   5. Starts the Flask app (src/app.py) in the background
-#   6. Opens http://localhost:5001 in the default browser
-#   7. Streams logs from both processes into this console
-#   8. On Ctrl+C, cleanly stops both children
-#
-# Layout assumed:
-#   <root>/
-#     Photobooth.exe        (compiled from src/Photobooth.ps1)
-#     Build.bat
-#     .env                  (user-editable)
-#     photos/               (all photo folders live here)
-#     README.md
-#     src/                  (everything the dummy user shouldn't see)
-#       app.py, config.py, ...
-#       static/
-#       NikonMove.ps1
-#       Photobooth.ps1      <-- this script
-#       Build.ps1
-#       requirements.txt
-#       venv/
+# 1. Copies .env.example -> .env if missing
+# 2. Creates Python venv + installs requirements if missing
+# 3. Creates photos/ subfolders
+# 4. Starts NikonMove.ps1 + app.py
+# 5. Opens browser (/ on subsequent runs, /config on first run)
+# 6. Streams logs, cleans up on Ctrl+C
 # ==========================================
 
 $ErrorActionPreference = "Stop"
@@ -33,10 +14,6 @@ $ErrorActionPreference = "Stop"
 # ------------------------------------------
 # LOCATE ROOT + SRC
 # ------------------------------------------
-# When compiled with PS2EXE and placed at the project root, the .exe's own
-# directory IS the project root - src/ sits beside it. When running the .ps1
-# directly during development, the script lives inside src/ and root is one
-# level up. Detect both cases.
 $scriptDir = $PSScriptRoot
 if (-not $scriptDir) {
     $scriptDir = Split-Path -Parent ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
@@ -55,11 +32,7 @@ Set-Location -LiteralPath $rootDir
 $AppPort = 5001
 
 function Write-Log {
-    param(
-        [string]$Message,
-        [string]$Color = "Gray",
-        [string]$Tag = "LAUNCHER"
-    )
+    param([string]$Message, [string]$Color = "Gray", [string]$Tag = "LAUNCHER")
     $ts = Get-Date -Format "HH:mm:ss"
     Write-Host "[$ts][$Tag] $Message" -ForegroundColor $Color
 }
@@ -69,185 +42,22 @@ function Test-CommandExists {
     try { Get-Command $Name -ErrorAction Stop | Out-Null; return $true } catch { return $false }
 }
 
-# Rewrites a single KEY=VALUE line in a dotenv file (adds the line if missing).
-# Preserves other lines, quoting, and trailing newlines.
-function Set-EnvValue {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Key,
-        [Parameter(Mandatory)][string]$Value
-    )
-    if (-not (Test-Path -LiteralPath $Path)) { return }
-    $lines = Get-Content -LiteralPath $Path
-    $found = $false
-    $newLines = foreach ($line in $lines) {
-        if ($line -match "^\s*$([regex]::Escape($Key))\s*=") {
-            $found = $true
-            "$Key=$Value"
-        } else {
-            $line
-        }
-    }
-    if (-not $found) { $newLines = @($newLines) + "$Key=$Value" }
-    Set-Content -LiteralPath $Path -Value $newLines -Encoding UTF8
-}
-
-# Interactive printer picker. Lists installed printers, lets the operator type a
-# number, and writes PRINTER_NAME=... into the given .env file. Enter with no
-# input picks the Windows default printer.
-function Select-PrinterInto {
-    param([Parameter(Mandatory)][string]$EnvPath)
-
-    $printers = @()
-    try {
-        $printers = @(Get-Printer -ErrorAction Stop | Sort-Object Name)
-    } catch {
-        Write-Log "Could not enumerate printers ($($_.Exception.Message)). Edit PRINTER_NAME by hand in Notepad." "Yellow"
-        return
-    }
-
-    if ($printers.Count -eq 0) {
-        Write-Log "No printers found on this machine. Install the SELPHY driver first, then edit .env by hand." "Yellow"
-        return
-    }
-
-    $default = $null
-    try {
-        $default = (Get-CimInstance -Class Win32_Printer -Filter 'Default = True' -ErrorAction Stop).Name
-    } catch {}
-
-    Write-Host ""
-    Write-Host "Available printers:" -ForegroundColor Cyan
-    for ($i = 0; $i -lt $printers.Count; $i++) {
-        $marker = if ($default -and $printers[$i].Name -eq $default) { " (default)" } else { "" }
-        Write-Host ("  [{0}] {1}{2}" -f ($i + 1), $printers[$i].Name, $marker)
-    }
-    Write-Host ""
-
-    $prompt = if ($default) {
-        "Pick a number (or press Enter for the default: $default)"
-    } else {
-        "Pick a number"
-    }
-
-    while ($true) {
-        $answer = Read-Host $prompt
-        $answer = if ($answer) { $answer.Trim() } else { "" }
-
-        if (-not $answer) {
-            if ($default) {
-                Set-EnvValue -Path $EnvPath -Key "PRINTER_NAME" -Value $default
-                Write-Log "PRINTER_NAME set to '$default' (system default)." "Green"
-                return
-            }
-            Write-Host "No default printer available - please enter a number." -ForegroundColor Yellow
-            continue
-        }
-
-        $idx = 0
-        if ([int]::TryParse($answer, [ref]$idx) -and $idx -ge 1 -and $idx -le $printers.Count) {
-            $chosen = $printers[$idx - 1].Name
-            Set-EnvValue -Path $EnvPath -Key "PRINTER_NAME" -Value $chosen
-            Write-Log "PRINTER_NAME set to '$chosen'." "Green"
-            return
-        }
-
-        Write-Host "Not a valid choice. Type a number from 1 to $($printers.Count) or press Enter." -ForegroundColor Yellow
-    }
-}
-
-# Interactive camera picker. Enumerates MTP devices visible in Shell "This PC",
-# lets the operator pick one, and writes CAMERA_NAME + CAMERA_FOLDER_PATTERN into .env.
-function Select-CameraInto {
-    param([Parameter(Mandatory)][string]$EnvPath)
-
-    Write-Host ""
-    Write-Host "Scanning for connected cameras (MTP devices)..." -ForegroundColor Cyan
-
-    $shell      = New-Object -ComObject Shell.Application
-    $myComputer = $shell.Namespace(0x11)
-    $devices    = @()
-
-    if ($myComputer) {
-        foreach ($item in $myComputer.Items()) {
-            try {
-                $folder = $item.GetFolder
-                if (-not $folder) { continue }
-                $hasStorage = $folder.Items() | Where-Object { $_.Name -like "*storage*" } | Select-Object -First 1
-                if ($hasStorage) { $devices += $item }
-            } catch {}
-        }
-    }
-
-    if ($devices.Count -eq 0) {
-        Write-Log "No MTP camera found. Connect the camera and re-run, or edit CAMERA_NAME / CAMERA_FOLDER_PATTERN by hand in .env." "Yellow"
-        return
-    }
-
-    Write-Host "Available cameras:" -ForegroundColor Cyan
-    for ($i = 0; $i -lt $devices.Count; $i++) {
-        Write-Host ("  [{0}] {1}" -f ($i + 1), $devices[$i].Name)
-    }
-    Write-Host ""
-
-    $chosen = $null
-    while ($true) {
-        $answer = (Read-Host "Pick a number").Trim()
-        $idx = 0
-        if ([int]::TryParse($answer, [ref]$idx) -and $idx -ge 1 -and $idx -le $devices.Count) {
-            $chosen = $devices[$idx - 1]
-            break
-        }
-        Write-Host "Not a valid choice. Type a number from 1 to $($devices.Count)." -ForegroundColor Yellow
-    }
-
-    # Derive CAMERA_NAME from device name (last word, e.g. "Nikon D3100" → "D3100")
-    $cameraName = ($chosen.Name -split '\s+')[-1]
-
-    # Find the DCIM folder pattern (e.g. "100D3100") — first subfolder under DCIM
-    $folderPattern = ""
-    try {
-        $storage = $chosen.GetFolder.Items() | Where-Object { $_.Name -like "*storage*" } | Select-Object -First 1
-        $dcim    = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" }       | Select-Object -First 1
-        $sub     = $dcim.GetFolder.Items() | Select-Object -First 1
-        if ($sub) { $folderPattern = $sub.Name }
-    } catch {}
-
-    Set-EnvValue -Path $EnvPath -Key "CAMERA_NAME"           -Value $cameraName
-    Write-Log "CAMERA_NAME set to '$cameraName'." "Green"
-
-    if ($folderPattern) {
-        Set-EnvValue -Path $EnvPath -Key "CAMERA_FOLDER_PATTERN" -Value $folderPattern
-        Write-Log "CAMERA_FOLDER_PATTERN set to '$folderPattern' (auto-detected)." "Green"
-    } else {
-        Write-Log "Could not auto-detect CAMERA_FOLDER_PATTERN — leaving default. Edit .env if photos are not imported." "Yellow"
-    }
-}
-
 Write-Log "Photobooth launcher starting" "Cyan"
 Write-Log "Root: $rootDir" "Gray"
 Write-Log "Src : $srcDir" "Gray"
 
 # ------------------------------------------
-# 1. .env BOOTSTRAP  (at root)
+# 1. .env BOOTSTRAP
 # ------------------------------------------
 $envAtRoot  = Join-Path $rootDir ".env"
 $envExample = Join-Path $srcDir  ".env.example"
+$firstRun   = $false
 
 if (-not (Test-Path -LiteralPath $envAtRoot)) {
     if (Test-Path -LiteralPath $envExample) {
         Copy-Item -LiteralPath $envExample -Destination $envAtRoot
-        Write-Log ".env not found - copied from src\.env.example." "Yellow"
-
-        Write-Log "Let's pick the printer to use." "Cyan"
-        Select-PrinterInto -EnvPath $envAtRoot
-
-        Write-Log "Let's pick the camera to use." "Cyan"
-        Select-CameraInto -EnvPath $envAtRoot
-
-        Write-Log "Opening .env in Notepad. Fill in SMTP/IMAP credentials, save, close." "Yellow"
-        Start-Process notepad.exe -ArgumentList $envAtRoot -Wait
-        Write-Log "Continuing with the .env you just saved..." "Cyan"
+        Write-Log ".env created from src\.env.example. Open http://localhost:$AppPort/config to finish setup." "Yellow"
+        $firstRun = $true
     } else {
         Write-Log ".env AND src\.env.example are both missing. Cannot continue." "Red"
         Read-Host "Press Enter to exit"
@@ -256,10 +66,10 @@ if (-not (Test-Path -LiteralPath $envAtRoot)) {
 }
 
 # ------------------------------------------
-# 2. PYTHON + VENV  (venv lives in src/venv)
+# 2. PYTHON + VENV
 # ------------------------------------------
 if (-not (Test-CommandExists "python")) {
-    Write-Log "Python is not on PATH. Install Python 3.11 or 3.12 from https://python.org and re-run." "Red"
+    Write-Log "Python is not on PATH. Install Python 3.12 from https://python.org and re-run." "Red"
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -305,7 +115,7 @@ if (-not (Test-Path -LiteralPath $pythonExe)) {
 }
 
 # ------------------------------------------
-# 3. PHOTO FOLDERS  (at root)
+# 3. PHOTO FOLDERS
 # ------------------------------------------
 $photoDirs = @(
     "photos\camera",
@@ -323,7 +133,7 @@ foreach ($d in $photoDirs) {
 }
 
 # ------------------------------------------
-# 4/5. START CHILD PROCESSES
+# 4. START CHILD PROCESSES
 # ------------------------------------------
 $nikonScript = Join-Path $srcDir "NikonMove.ps1"
 $appScript   = Join-Path $srcDir "app.py"
@@ -356,8 +166,6 @@ function Start-Child {
         $psi.EnvironmentVariables[$kv.Key] = $kv.Value
     }
 
-    # PS 5.1 lacks ProcessStartInfo.ArgumentList - use .Arguments (single string).
-    # Quote every arg so paths with spaces (Program Files, OneDrive - SAP SE, ...) survive.
     if ($ArgumentList.Count -gt 0) {
         $quoted = foreach ($a in $ArgumentList) {
             if ($a -match '\s|"') { '"' + ($a -replace '"', '\"') + '"' } else { $a }
@@ -387,9 +195,6 @@ function Start-Child {
     return $proc
 }
 
-# NikonMove.ps1 reads .\.env and resolves CAMERA_DIR relative to CWD, so we
-# spawn it with WorkingDirectory = project root. Its relative paths land at
-# the root just like they did before the reorg.
 if (Test-Path -LiteralPath $nikonScript) {
     Write-Log "Starting Nikon MTP importer..." "Cyan"
     try {
@@ -405,10 +210,6 @@ if (Test-Path -LiteralPath $nikonScript) {
     Write-Log "src\NikonMove.ps1 not found - skipping camera importer." "Yellow"
 }
 
-# app.py uses ./photos/* relative to CWD, and Flask's static_folder="static"
-# is resolved relative to app.py itself. Setting CWD = rootDir keeps photo
-# paths at the root; static/ correctly resolves to src/static/ because Flask
-# uses the app module's file location.
 Write-Log "Starting Flask app..." "Cyan"
 try {
     $appProc = Start-Child -Name "APP" `
@@ -424,12 +225,16 @@ try {
 }
 
 # ------------------------------------------
-# 6/7. WAIT FOR SERVER, THEN OPEN BROWSER + WATCH LOOP
+# 5. WAIT FOR SERVER, OPEN BROWSER, WATCH
 # ------------------------------------------
-$openedBrowser = $false
+$openedBrowser   = $false
 $serverStartedAt = Get-Date
+$openUrl         = if ($firstRun) { "http://localhost:$AppPort/config" } else { "http://localhost:$AppPort" }
 
 Write-Log "All services launched. Press Ctrl+C to stop." "Green"
+if ($firstRun) {
+    Write-Log "First run — browser will open at /config so you can set up printer, camera, and email." "Yellow"
+}
 
 try {
     while ($true) {
@@ -444,8 +249,8 @@ try {
                 $tcp.Close()
             } catch {}
             if ($listening) {
-                Write-Log "Server is up - opening http://localhost:$AppPort" "Green"
-                Start-Process "http://localhost:$AppPort" | Out-Null
+                Write-Log "Server is up - opening $openUrl" "Green"
+                Start-Process $openUrl | Out-Null
                 $openedBrowser = $true
             } elseif (((Get-Date) - $serverStartedAt).TotalSeconds -gt 30) {
                 Write-Log "Server did not start within 30s. Check the [APP] logs above." "Yellow"
@@ -476,9 +281,6 @@ try {
         Write-Log "Stopping (Ctrl+C)..." "Yellow"
     }
 } finally {
-    # ------------------------------------------
-    # 8. CLEANUP
-    # ------------------------------------------
     foreach ($c in $children) {
         try {
             if (-not $c.Process.HasExited) {

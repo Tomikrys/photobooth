@@ -77,13 +77,12 @@ photobooth\
 **Every time after that:** double-click **`Photobooth.bat`**. On first run it:
 
 - Copies `src\.env.example` → `.env`.
-- Asks you to pick a **printer** from the list of installed printers.
-- Asks you to pick a **camera** from the list of connected MTP devices (auto-detects the DCIM folder pattern — connect the camera before launching for best results).
-- Opens `.env` in Notepad — fill in SMTP/IMAP credentials, save, close.
 - Creates the Python venv (`src\venv\`) and installs dependencies. Takes ~1 minute.
 - Creates the `photos\` subfolders.
 - Starts the Nikon camera importer and the Flask server.
-- Opens `http://localhost:5001` in your browser.
+- Opens `http://localhost:5001/config` — fill in your printer, camera, and email credentials there, then click **Uložit**.
+
+Subsequent runs open the gallery directly at `http://localhost:5001`.
 
 Subsequent runs skip setup and start everything in ~2 seconds. Close the console window (or Ctrl+C) to shut down cleanly.
 
