@@ -230,13 +230,24 @@ emailSendBtn.addEventListener("click", async () => {
 // ── Hide / delete ──────────────────────────────────────────────────────────
 document.getElementById("hide-btn").addEventListener("click", async () => {
   const photo = photos[currentIndex];
+  // Optimistic update — remove locally immediately without waiting for socket event
+  const removedIdx = currentIndex;
+  photos = photos.filter(p => p.filename !== photo.filename);
+  renderGallery();
+  if (document.getElementById("lightbox").classList.contains("open")) {
+    if (photos.length === 0) {
+      closeLightbox();
+    } else {
+      if (currentIndex >= photos.length) currentIndex = photos.length - 1;
+      renderLightbox();
+    }
+  }
   try {
     await fetch("/api/hide", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filename: photo.filename }),
     });
-    // photo_hidden socket event handles lightbox navigation
   } catch (e) {
     console.error("Hide failed:", e);
   }

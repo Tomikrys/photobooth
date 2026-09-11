@@ -100,9 +100,11 @@ def test_api_email_queues_on_connection_error(tmp_path, monkeypatch):
 
     # force fresh import so config picks up the env vars
     import importlib, sys
+    from unittest.mock import patch, MagicMock
     for mod in ["config", "email_queue", "app"]:
         sys.modules.pop(mod, None)
-    app = importlib.import_module("app")
+    with patch("dotenv.load_dotenv", MagicMock()):
+        app = importlib.import_module("app")
 
     with patch("mailer.smtplib.SMTP_SSL", side_effect=socket.gaierror("no internet")):
         client = app.flask_app.test_client()

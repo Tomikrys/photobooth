@@ -70,3 +70,39 @@ def test_raw_dir_backs_up_original(dirs, tmp_path):
     # original backed up under raw/, source (camera/) cleaned up
     assert (raw_backup / "archive_me.jpg").exists()
     assert not src.exists()
+
+
+def test_centre_crop_square_image(dirs):
+    src = Path(dirs["raw"]) / "square.jpg"
+    make_jpeg(str(src), 1000, 1000)
+    from watcher import process_image
+    result = process_image(str(src), dirs["processed"], dirs["hidden"])
+    assert result is not None
+    img = Image.open(result["fullres"])
+    w, h = img.size
+    assert abs(w / h - 3 / 2) < 0.01
+    assert w <= 1000 and h <= 1000
+
+
+def test_centre_crop_extreme_wide_landscape(dirs):
+    src = Path(dirs["raw"]) / "extreme_wide.jpg"
+    make_jpeg(str(src), 3000, 100)  # very wide, short
+    from watcher import process_image
+    result = process_image(str(src), dirs["processed"], dirs["hidden"])
+    assert result is not None
+    img = Image.open(result["fullres"])
+    w, h = img.size
+    assert abs(w / h - 3 / 2) < 0.01
+    assert w <= 3000 and h <= 100  # must not exceed original dimensions
+
+
+def test_centre_crop_extreme_tall_portrait(dirs):
+    src = Path(dirs["raw"]) / "extreme_tall.jpg"
+    make_jpeg(str(src), 100, 3000)  # very tall, narrow
+    from watcher import process_image
+    result = process_image(str(src), dirs["processed"], dirs["hidden"])
+    assert result is not None
+    img = Image.open(result["fullres"])
+    w, h = img.size
+    assert abs(w / h - 2 / 3) < 0.01
+    assert w <= 100 and h <= 3000  # must not exceed original dimensions

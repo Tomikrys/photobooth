@@ -47,5 +47,6 @@ def send_email(
             server.login(smtp_user, smtp_pass)
             server.send_message(msg, to_addrs=recipients)
     except (socket.gaierror, socket.timeout, ConnectionError, OSError,
-            smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected) as e:
+            smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected,
+            smtplib.SMTPAuthenticationError, smtplib.SMTPException) as e:
         raise EmailConnectionError(str(e)) from e

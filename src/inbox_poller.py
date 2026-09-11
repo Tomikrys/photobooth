@@ -27,8 +27,8 @@ def poll_once(imap_server: str, imap_user: str, imap_pass: str, raw_dir: str) ->
         if imap is not None:
             try:
                 imap.logout()
-            except Exception:
-                pass
+            except Exception as e:
+                log.debug("IMAP logout failed: %s", e)
 
 
 def _save_attachments(msg, raw_dir: str) -> None:
@@ -57,9 +57,17 @@ def _save_attachments(msg, raw_dir: str) -> None:
 
 class InboxPoller:
     def __init__(self, imap_server, imap_user, imap_pass, raw_dir, interval=30):
-        self._args = (imap_server, imap_user, imap_pass, raw_dir)
+        self._imap_server = imap_server
+        self._imap_user = imap_user
+        self._imap_pass = imap_pass
+        self._raw_dir = raw_dir
         self._interval = interval
         self._running = False
+
+    def update_credentials(self, imap_server, imap_user, imap_pass):
+        self._imap_server = imap_server
+        self._imap_user = imap_user
+        self._imap_pass = imap_pass
 
     def start(self):
         self._running = True
@@ -67,7 +75,7 @@ class InboxPoller:
 
     def _loop(self):
         while self._running:
-            poll_once(*self._args)
+            poll_once(self._imap_server, self._imap_user, self._imap_pass, self._raw_dir)
             time.sleep(self._interval)
 
     def stop(self):

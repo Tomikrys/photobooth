@@ -4,6 +4,8 @@ from PIL import Image
 
 
 def print_image(filepath: str, printer_name: str, copies: int = 1) -> None:
+    if not printer_name:
+        raise ValueError("PRINTER_NAME is not configured — set it in /config")
     if platform.system() == "Windows":
         _print_windows(filepath, printer_name, copies)
     else:

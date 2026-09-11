@@ -16,8 +16,9 @@ _log_buffer = deque(maxlen=500)
 
 class _BufferHandler(logging.Handler):
     def emit(self, record):
+        from datetime import datetime
         _log_buffer.append({
-            "t": self.formatTime(record, "%H:%M:%S"),
+            "t": datetime.fromtimestamp(record.created).strftime("%H:%M:%S"),
             "level": record.levelname,
             "name": record.name,
             "msg": record.getMessage(),
@@ -44,6 +45,8 @@ _nikon_proc = None
 _nikon_lock = threading.Lock()
 _src_dir = Path(__file__).resolve().parent
 _root_dir = _src_dir.parent
+_poller = None   # InboxPoller — set in __main__, updated by config save
+_watcher = None  # PhotoWatcher — set in __main__, updated by config save
 
 
 def _start_nikon():
@@ -256,6 +259,12 @@ def api_config_save():
     email_queue._smtp_pass = config.SMTP_PASS
     email_queue._processed_dir = Path(config.PROCESSED_DIR)
 
+    # Update InboxPoller credentials (it stores them as instance vars, not from config)
+    if _poller is not None:
+        _poller.update_credentials(config.IMAP_SERVER, config.IMAP_USER, config.IMAP_PASS)
+    if _watcher is not None:
+        _watcher.reload_watch_dir()
+
     return jsonify({"ok": True})
 
 
@@ -397,14 +406,14 @@ if __name__ == "__main__":
     log.info("Serving thumbs    from: %s", config.THUMBS_DIR)
     log.info("Watching camera   dir : %s", config.CAMERA_DIR)
 
-    watcher = PhotoWatcher(on_new_photo)
-    watcher.start()
+    _watcher = PhotoWatcher(on_new_photo)
+    _watcher.start()
 
-    poller = InboxPoller(
+    _poller = InboxPoller(
         config.IMAP_SERVER, config.IMAP_USER, config.IMAP_PASS,
         config.CAMERA_DIR, config.IMAP_POLL_INTERVAL
     )
-    poller.start()
+    _poller.start()
 
     email_queue.start()
     # Only spawn NikonMove when running standalone (not via Photobooth.exe launcher,

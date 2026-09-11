@@ -287,7 +287,7 @@ try {
                 Write-Log "Stopping $($c.Name) (PID $($c.Process.Id))..." "Yellow"
                 try { $c.Process.CloseMainWindow() | Out-Null } catch {}
                 if (-not $c.Process.WaitForExit(3000)) {
-                    try { $c.Process.Kill($true) } catch { try { $c.Process.Kill() } catch {} }
+                    try { $c.Process.Kill() } catch {}
                 }
             }
         } catch {

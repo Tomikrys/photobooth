@@ -34,6 +34,8 @@ function setSelectOptions(selectEl, options, current) {
   }
 }
 
+const PLACEHOLDER_VALUES = new Set(["Načítám…", "— nenalezeno —", "Chyba načítání", ""]);
+
 // ── Load current config ─────────────────────────────────────────────────────
 let _cfg = {};
 
@@ -123,13 +125,13 @@ async function saveConfig() {
 
   // Printer
   const printerSel = document.getElementById("printer-select");
-  if (printerSel.value) data.PRINTER_NAME = printerSel.value;
+  if (printerSel.value && !PLACEHOLDER_VALUES.has(printerSel.value)) data.PRINTER_NAME = printerSel.value;
 
   // Camera
   const deviceSel = document.getElementById("camera-device-select");
   const folderSel = document.getElementById("camera-folder-select");
-  if (deviceSel.value) data.CAMERA_NAME = deviceSel.value;
-  if (folderSel.value) data.CAMERA_FOLDER_PATTERN = folderSel.value;
+  if (deviceSel.value && !PLACEHOLDER_VALUES.has(deviceSel.value)) data.CAMERA_NAME = deviceSel.value;
+  if (folderSel.value && !PLACEHOLDER_VALUES.has(folderSel.value)) data.CAMERA_FOLDER_PATTERN = folderSel.value;
 
   // Text/password fields — skip password fields if left empty (don't blank real creds)
   [

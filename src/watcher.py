@@ -23,12 +23,12 @@ def _centre_crop(img: Image.Image) -> Image.Image:
         target_w, target_h = w, int(w * 2 / 3)
         if target_h > h:
             target_h = h
-            target_w = int(h * 3 / 2)
+            target_w = min(int(h * 3 / 2), w)  # clamp to image width
     else:        # portrait → 2:3
         target_h, target_w = h, int(h * 2 / 3)
         if target_w > w:
             target_w = w
-            target_h = int(w * 3 / 2)
+            target_h = min(int(w * 3 / 2), h)  # clamp to image height
     left = (w - target_w) // 2
     top = (h - target_h) // 2
     return img.crop((left, top, left + target_w, top + target_h))
@@ -156,6 +156,13 @@ class PhotoWatcher:
         self._observer = Observer()
         self._observer.schedule(self._handler, config.CAMERA_DIR, recursive=False)
         self._running = False
+
+    def reload_watch_dir(self):
+        """Re-schedule the observer on the current config.CAMERA_DIR (call after config reload)."""
+        self._observer.unschedule_all()
+        os.makedirs(config.CAMERA_DIR, exist_ok=True)
+        self._observer.schedule(self._handler, config.CAMERA_DIR, recursive=False)
+        log.info("Watcher re-scheduled on %s", config.CAMERA_DIR)
 
     def start(self):
         os.makedirs(config.CAMERA_DIR, exist_ok=True)

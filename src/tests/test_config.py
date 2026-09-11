@@ -18,17 +18,18 @@ def test_config_loads_all_keys():
         "PRINTED_DIR": "./photos/printed",
         "HIDDEN_DIR": "./photos/hidden",
     }
-    with patch.dict(os.environ, env):
+    with patch("dotenv.load_dotenv", MagicMock()), \
+         patch.dict(os.environ, env, clear=True):
         import importlib, config
         importlib.reload(config)
         assert config.PRINTER_NAME == "Canon SELPHY CP1500"
         assert config.SMTP_PORT == 465
         assert config.IMAP_POLL_INTERVAL == 30
-        # Paths are anchored to CWD at import time; check suffix, not exact string.
         assert os.path.isabs(config.RAW_DIR)
         assert config.RAW_DIR.replace(os.sep, "/").endswith("/photos/raw")
 
-def test_missing_required_key_raises():
+def test_missing_required_key_returns_empty_string():
+    """Keys are now optional (use .get()) — missing key gives empty string, no crash."""
     env = {
         "SMTP_SERVER": "s", "SMTP_PORT": "465",
         "SMTP_USER": "u", "SMTP_PASS": "p",
@@ -39,10 +40,10 @@ def test_missing_required_key_raises():
         "PRINTED_DIR": "./photos/printed",
         "HIDDEN_DIR": "./photos/hidden",
     }
-    # PRINTER_NAME is absent; patch load_dotenv to prevent .env file from supplying it
     with patch("dotenv.load_dotenv", MagicMock()), \
          patch.dict(os.environ, env, clear=True):
         sys.modules.pop("config", None)
-        with pytest.raises(KeyError):
-            import importlib
-            importlib.import_module("config")
+        import importlib
+        cfg = importlib.import_module("config")
+        # PRINTER_NAME not in env, should be empty string
+        assert cfg.PRINTER_NAME == ""
