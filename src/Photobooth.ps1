@@ -250,7 +250,21 @@ try {
             } catch {}
             if ($listening) {
                 Write-Log "Server is up - opening $openUrl" "Green"
-                Start-Process $openUrl | Out-Null
+                # Try Chrome in fullscreen kiosk mode first, fall back to default browser
+                $chrome = $null
+                $chromePaths = @(
+                    "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+                    "$env:ProgramFiles(x86)\Google\Chrome\Application\chrome.exe",
+                    "$env:LocalAppData\Google\Chrome\Application\chrome.exe"
+                )
+                foreach ($p in $chromePaths) {
+                    if (Test-Path -LiteralPath $p) { $chrome = $p; break }
+                }
+                if ($chrome) {
+                    Start-Process $chrome -ArgumentList "--start-fullscreen", "--app=$openUrl" | Out-Null
+                } else {
+                    Start-Process $openUrl | Out-Null
+                }
                 $openedBrowser = $true
             } elseif (((Get-Date) - $serverStartedAt).TotalSeconds -gt 30) {
                 Write-Log "Server did not start within 30s. Check the [APP] logs above." "Yellow"
