@@ -61,8 +61,7 @@ You should end up with a project folder that looks like this:
 
 ```
 photobooth\
-  Photobooth.exe   ← double-click to run
-  Build.bat        ← run once to build Photobooth.exe (first-time only)
+  Photobooth.bat   ← double-click to run
   .env             ← your credentials (created on first run)
   photos\          ← where your pictures live
   README.md
@@ -72,11 +71,10 @@ photobooth\
 **One-time setup:**
 
 1. Install **Python 3.12** from https://python.org — during install, check **"Add python.exe to PATH"**. (3.11 and 3.13 also work; avoid 3.14 — `pywin32` wheels don't exist for it yet.)
-2. Install the **Canon SELPHY CP1500 driver** from Canon's site. In **Settings → Printers & scanners**, note the *exact* printer name — you'll paste it into `.env`.
+2. Install the **Canon SELPHY CP1500 driver** from Canon's site.
 3. Copy the project folder onto the laptop (via git clone, USB stick, or however).
-4. **Double-click `Build.bat`.** It auto-installs the PS2EXE PowerShell module and compiles `Photobooth.exe` into the project root. First run only — after that you can delete Build.bat if you want.
 
-**Every time after that:** double-click **`Photobooth.exe`**. On first run it:
+**Every time after that:** double-click **`Photobooth.bat`**. On first run it:
 
 - Copies `src\.env.example` → `.env`.
 - Asks you to pick a **printer** from the list of installed printers.
@@ -155,7 +153,7 @@ Or do it by hand:
 
 ## Running
 
-- **Windows**: double-click **`Photobooth.exe`** at the project root. It starts the Nikon MTP importer, the Flask server, and opens the browser automatically. Ctrl+C in the console (or closing it) stops everything.
+- **Windows**: double-click **`Photobooth.bat`** at the project root. It starts the Nikon MTP importer, the Flask server, and opens the browser automatically. Ctrl+C in the console (or closing it) stops everything.
 - **macOS**: `./src/run.sh` from the project root. Starts the Flask server only (no Nikon importer on macOS).
 
 The server listens on `0.0.0.0:5001`. Any device on the same Wi-Fi can view the gallery at `http://<laptop-ip>:5001`. On Windows, allow Python through the firewall when prompted on first run.
@@ -230,9 +228,8 @@ photobooth/
 ├── photos/                 # all photo folders (ingest, raw, processed, ...)
 ├── README.md
 └── src/                    # everything the operator doesn't need to see
-    ├── Photobooth.ps1      # launcher source → compiled to ../Photobooth.exe
+    ├── Photobooth.ps1      # launcher source (run via Photobooth.bat)
     ├── NikonMove.ps1       # Nikon MTP importer (spawned by launcher)
-    ├── Build.ps1           # compiles Photobooth.ps1 with PS2EXE
     ├── app.py              # Flask + Socket.IO routes
     ├── config.py           # loads .env, exports constants
     ├── watcher.py          # watchdog observer + process_image
