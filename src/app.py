@@ -403,7 +403,13 @@ if __name__ == "__main__":
     from watcher import PhotoWatcher
     from inbox_poller import InboxPoller
 
-    logging.basicConfig(level=logging.INFO)
+    # basicConfig only installs a StreamHandler when no handlers exist yet.
+    # _buf_handler is already on the root logger, so force-add stdout explicitly.
+    _stream = logging.StreamHandler()
+    _stream.setLevel(logging.INFO)
+    _stream.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    logging.getLogger().addHandler(_stream)
+    logging.getLogger().setLevel(logging.INFO)
 
     log.info("Serving processed from: %s", config.PROCESSED_DIR)
     log.info("Serving thumbs    from: %s", config.THUMBS_DIR)
