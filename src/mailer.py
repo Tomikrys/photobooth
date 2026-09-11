@@ -47,6 +47,10 @@ def send_email(
             server.login(smtp_user, smtp_pass)
             server.send_message(msg, to_addrs=recipients)
     except (socket.gaierror, socket.timeout, ConnectionError, OSError,
-            smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected,
-            smtplib.SMTPAuthenticationError, smtplib.SMTPException) as e:
+            smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected) as e:
+        # Network unreachable — caller should queue for later
         raise EmailConnectionError(str(e)) from e
+    except smtplib.SMTPException as e:
+        # SMTP-level error (auth failure, bad address, etc.) — not a connectivity issue,
+        # re-raise as-is so the queue drops the entry rather than retrying forever
+        raise

@@ -15,7 +15,7 @@ import mailer
 
 log = logging.getLogger(__name__)
 
-RETRY_INTERVAL = 60  # seconds between retry sweeps
+RETRY_INTERVAL = 15  # seconds between retry sweeps
 
 
 class EmailQueue:
@@ -116,9 +116,15 @@ class EmailQueue:
         self._stop.set()
 
     def _run(self) -> None:
+        if self._entries:
+            log.info("Email queue loaded %d pending entries — will retry every %ds", len(self._entries), RETRY_INTERVAL)
         while not self._stop.is_set():
             try:
-                self.flush()
+                sent, remaining = self.flush()
+                if sent:
+                    log.info("Email queue: sent %d, %d remaining", sent, remaining)
+                elif remaining:
+                    log.debug("Email queue: %d entries still pending (offline?)", remaining)
             except Exception:  # noqa: BLE001
                 log.exception("Email queue flush crashed")
             self._stop.wait(RETRY_INTERVAL)
