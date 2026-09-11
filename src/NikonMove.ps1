@@ -198,7 +198,7 @@ try {
                     continue
                 }
 
-                $storage = $camera.GetFolder.Items() | Where-Object { $_.Name -like "*Removable storage*" } | Select-Object -First 1
+                $storage = $camera.GetFolder.Items() | Select-Object -First 1
                 if (-not $storage) { Start-Sleep -Milliseconds 500; continue }
 
                 $dcimFolder = $storage.GetFolder.Items() | Where-Object { $_.Name -eq "DCIM" } | Select-Object -First 1
