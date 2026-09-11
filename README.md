@@ -2,7 +2,7 @@
 
 A wedding photo-booth web app. Runs on a laptop connected to a Canon SELPHY dye-sub printer. Guests take photos (either via a camera that syncs a folder, or by emailing them to a mailbox), and a browser gallery on the same laptop shows them live, lets you reprint, resend by email, or delete.
 
-**Stack:** Python 3.11+ · Flask + Flask-SocketIO · watchdog · Pillow · vanilla JS + Tailwind (CDN)
+**Stack:** Python 3.12 · Flask + Flask-SocketIO · watchdog · Pillow · vanilla JS + Tailwind (CDN)
 
 ---
 
@@ -71,7 +71,7 @@ photobooth\
 
 **One-time setup:**
 
-1. Install **Python 3.11 or 3.12** from https://python.org — during install, check **"Add python.exe to PATH"**. (Avoid 3.14 on Windows for now; `pywin32` wheels lag.)
+1. Install **Python 3.12** from https://python.org — during install, check **"Add python.exe to PATH"**. (3.11 and 3.13 also work; avoid 3.14 — `pywin32` wheels don't exist for it yet.)
 2. Install the **Canon SELPHY CP1500 driver** from Canon's site. In **Settings → Printers & scanners**, note the *exact* printer name — you'll paste it into `.env`.
 3. Copy the project folder onto the laptop (via git clone, USB stick, or however).
 4. **Double-click `Build.bat`.** It auto-installs the PS2EXE PowerShell module and compiles `Photobooth.exe` into the project root. First run only — after that you can delete Build.bat if you want.
