@@ -21,6 +21,12 @@
       user-select: none;
     }
     #photo-main.zoomed { transform: scale(2.5); cursor: zoom-out; }
+    /* Touch-friendly minimum tap targets */
+    #prev-btn, #next-btn { min-width: 56px; min-height: 56px; display: flex; align-items: center; justify-content: center; }
+    #close-btn { min-width: 48px; min-height: 48px; display: flex; align-items: center; justify-content: center; }
+    #copies-minus, #copies-plus { width: 44px !important; height: 44px !important; }
+    /* Prevent double-tap zoom on interactive elements */
+    button, a { touch-action: manipulation; }
   </style>
 </head>
 <body class="min-h-screen text-white">
@@ -48,20 +54,20 @@
         <button id="next-btn" class="absolute right-2 z-10 text-4xl gold opacity-60 hover:opacity-100 px-2">&#8594;</button>
       </div>
       <!-- Right panel -->
-      <div class="w-48 flex flex-col gap-4 p-4 border-l border-gray-800 justify-center items-center">
+      <div class="w-56 flex flex-col gap-4 p-4 border-l border-gray-800 justify-center items-center">
         <button id="close-btn" class="self-end text-gray-500 hover:text-white text-xl">✕</button>
 
         <!-- Print stepper -->
         <div class="flex flex-col items-center gap-1">
           <span class="text-xs text-gray-500 tracking-widest">POČET KOPIÍ</span>
           <div class="flex items-center gap-3">
-            <button id="copies-minus" class="w-8 h-8 rounded-full border gold-border gold text-lg leading-none flex items-center justify-center hover:opacity-80 active:scale-95 transition select-none">−</button>
+            <button id="copies-minus" class="w-11 h-11 rounded-full border gold-border gold text-xl leading-none flex items-center justify-center hover:opacity-80 active:scale-95 transition select-none">−</button>
             <span id="copies-count" class="gold text-2xl font-bold w-6 text-center">1</span>
-            <button id="copies-plus" class="w-8 h-8 rounded-full border gold-border gold text-lg leading-none flex items-center justify-center hover:opacity-80 active:scale-95 transition select-none">+</button>
+            <button id="copies-plus" class="w-11 h-11 rounded-full border gold-border gold text-xl leading-none flex items-center justify-center hover:opacity-80 active:scale-95 transition select-none">+</button>
           </div>
         </div>
 
-        <button id="print-btn" class="gold-bg text-gray-900 font-bold rounded-full px-4 py-2 w-full text-sm hover:opacity-90 flex items-center justify-center gap-2">
+        <button id="print-btn" class="gold-bg text-gray-900 font-bold rounded-full px-4 py-3 w-full text-sm hover:opacity-90 flex items-center justify-center gap-2">
           <svg id="print-spinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
             <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
@@ -70,9 +76,9 @@
         </button>
 
         <!-- Email section -->
-        <button id="email-toggle-btn" class="border gold-border gold rounded-full px-4 py-2 w-full text-sm hover:opacity-80">✉ E-MAIL</button>
+        <button id="email-toggle-btn" class="border gold-border gold rounded-full px-4 py-3 w-full text-sm hover:opacity-80">✉ E-MAIL</button>
 
-        <button id="hide-btn" class="border border-red-800 text-red-400 rounded-full px-4 py-2 w-full text-sm hover:border-red-500 hover:text-red-300">🗑 SMAZAT</button>
+        <button id="hide-btn" class="border border-red-800 text-red-400 rounded-full px-4 py-3 w-full text-sm hover:border-red-500 hover:text-red-300">🗑 SMAZAT</button>
       </div>
     </div>
 
@@ -93,8 +99,8 @@
       <p class="text-xs text-gray-600 mb-4">Např.: <span class="gold">jan@example.cz, marie@example.cz</span></p>
 
       <div class="flex gap-2">
-        <button id="email-modal-cancel" class="flex-1 border border-gray-700 text-gray-400 rounded-full px-4 py-2 text-sm hover:border-gray-500 hover:text-white">Zrušit</button>
-        <button id="email-modal-send" class="flex-1 gold-bg text-gray-900 font-bold rounded-full px-4 py-2 text-sm hover:opacity-90 flex items-center justify-center gap-2">
+        <button id="email-modal-cancel" class="flex-1 border border-gray-700 text-gray-400 rounded-full px-4 py-3 text-sm hover:border-gray-500 hover:text-white">Zrušit</button>
+        <button id="email-modal-send" class="flex-1 gold-bg text-gray-900 font-bold rounded-full px-4 py-3 text-sm hover:opacity-90 flex items-center justify-center gap-2">
           <span id="email-modal-send-label">Odeslat</span>
           <svg id="email-modal-spinner" class="hidden animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>

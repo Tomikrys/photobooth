@@ -128,9 +128,53 @@ photoEl.addEventListener("mousedown", (e) => { e.preventDefault(); zoomAt(e.clie
 photoEl.addEventListener("mousemove", (e) => { if (photoEl.classList.contains("zoomed")) zoomAt(e.clientX, e.clientY); });
 photoEl.addEventListener("mouseup",    unzoom);
 photoEl.addEventListener("mouseleave", unzoom);
-photoEl.addEventListener("touchstart", (e) => { const t = e.touches[0]; zoomAt(t.clientX, t.clientY); }, { passive: true });
-photoEl.addEventListener("touchmove",  (e) => { const t = e.touches[0]; zoomAt(t.clientX, t.clientY); }, { passive: true });
-photoEl.addEventListener("touchend",   unzoom);
+
+// Touch: tap to toggle zoom; swipe left/right to navigate
+let _touchStartX = null;
+let _touchStartY = null;
+let _touchStartTime = null;
+let _zoomOriginX = null;
+let _zoomOriginY = null;
+
+photoEl.addEventListener("touchstart", (e) => {
+  const t = e.touches[0];
+  _touchStartX = t.clientX;
+  _touchStartY = t.clientY;
+  _touchStartTime = Date.now();
+  _zoomOriginX = t.clientX;
+  _zoomOriginY = t.clientY;
+}, { passive: true });
+
+photoEl.addEventListener("touchmove", (e) => {
+  if (!photoEl.classList.contains("zoomed")) return;
+  const t = e.touches[0];
+  zoomAt(t.clientX, t.clientY);
+}, { passive: true });
+
+photoEl.addEventListener("touchend", (e) => {
+  const dt = Date.now() - _touchStartTime;
+  const dx = e.changedTouches[0].clientX - _touchStartX;
+  const dy = e.changedTouches[0].clientY - _touchStartY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (photoEl.classList.contains("zoomed")) {
+    // Any touch-end unzooms
+    unzoom();
+    return;
+  }
+
+  // Tap (short + small movement) → zoom in
+  if (dt < 300 && dist < 15) {
+    zoomAt(_zoomOriginX, _zoomOriginY);
+    return;
+  }
+
+  // Swipe (horizontal dominant, fast enough)
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 400) {
+    if (dx < 0 && currentIndex < photos.length - 1) { currentIndex++; renderLightbox(); }
+    if (dx > 0 && currentIndex > 0)                 { currentIndex--; renderLightbox(); }
+  }
+});
 
 // ── Copies stepper ─────────────────────────────────────────────────────────
 document.getElementById("copies-minus").addEventListener("click", () => {
