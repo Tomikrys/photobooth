@@ -27,6 +27,9 @@ class _BufferHandler(logging.Handler):
 _buf_handler = _BufferHandler()
 logging.getLogger().addHandler(_buf_handler)
 
+# Demote werkzeug request logs to DEBUG — they're noise at INFO level in the UI
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
 flask_app = Flask(__name__, static_folder="static", static_url_path="")
 flask_app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "photobooth-dev-key-change-in-prod")
 socketio = SocketIO(flask_app, async_mode="threading", cors_allowed_origins="*")

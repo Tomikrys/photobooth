@@ -1,4 +1,76 @@
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Custom dropdown ───────────────────────────────────────────────────────────
+// State: { id -> { value, display } }
+const _selectState = {};
+
+function toggleDropdown(id) {
+  const dd = document.getElementById(id + "-dropdown");
+  const isOpen = dd.classList.contains("open");
+  // Close all dropdowns first
+  document.querySelectorAll(".custom-select-dropdown.open").forEach(el => el.classList.remove("open"));
+  if (!isOpen) dd.classList.add("open");
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener("click", e => {
+  if (!e.target.closest(".custom-select-wrap")) {
+    document.querySelectorAll(".custom-select-dropdown.open").forEach(el => el.classList.remove("open"));
+  }
+});
+
+function buildDropdown(id, options, current) {
+  const display = document.getElementById(id + "-display");
+  const dropdown = document.getElementById(id + "-dropdown");
+  dropdown.innerHTML = "";
+
+  if (!options.length) {
+    const label = current || "— nenalezeno —";
+    display.textContent = label;
+    _selectState[id] = { value: current || "", display: label };
+    const opt = document.createElement("div");
+    opt.className = "custom-select-option" + (current ? " selected" : "");
+    opt.textContent = current ? current + " (z .env)" : "— nenalezeno —";
+    opt.dataset.val = current || "";
+    opt.onclick = () => pickOption(id, current || "", opt.textContent);
+    dropdown.appendChild(opt);
+    return;
+  }
+
+  // If current value not in list, prepend it
+  const allOptions = [...options];
+  const currentLabel = current && !options.includes(current) ? current + " (z .env)" : null;
+  if (currentLabel) allOptions.unshift(current);
+
+  const selected = current || allOptions[0];
+  display.textContent = (current && !options.includes(current)) ? currentLabel : (selected || allOptions[0]);
+  _selectState[id] = { value: selected, display: display.textContent };
+
+  allOptions.forEach(o => {
+    const isSelected = o === selected;
+    const label = (o === current && !options.includes(current)) ? o + " (z .env)" : o;
+    const opt = document.createElement("div");
+    opt.className = "custom-select-option" + (isSelected ? " selected" : "");
+    opt.textContent = label;
+    opt.dataset.val = o;
+    opt.onclick = () => pickOption(id, o, label);
+    dropdown.appendChild(opt);
+  });
+}
+
+function pickOption(id, value, label) {
+  _selectState[id] = { value, display: label };
+  document.getElementById(id + "-display").textContent = label;
+  document.getElementById(id + "-dropdown").classList.remove("open");
+  document.querySelectorAll(`#${id}-dropdown .custom-select-option`).forEach(el => {
+    el.classList.toggle("selected", el.dataset.val === value);
+  });
+  if (id === "camera-device") loadMtpFolders();
+}
+
+function getSelectValue(id) {
+  return _selectState[id]?.value || "";
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function showBanner(msg, ok) {
   const b = document.getElementById("banner");
   b.textContent = msg;
@@ -7,43 +79,20 @@ function showBanner(msg, ok) {
   setTimeout(() => b.classList.add("hidden"), 4000);
 }
 
-function setSelectOptions(selectEl, options, current) {
-  selectEl.innerHTML = "";
-  if (!options.length) {
-    // Keep the current known value so a failed enumeration doesn't overwrite it on save
-    const val = current || "";
-    selectEl.innerHTML = val
-      ? `<option value="${val}">${val} (z .env)</option>`
-      : '<option value="">— nenalezeno —</option>';
-    return;
-  }
-  options.forEach(o => {
-    const opt = document.createElement("option");
-    opt.value = o;
-    opt.textContent = o;
-    if (o === current) opt.selected = true;
-    selectEl.appendChild(opt);
-  });
-  // If nothing matched current, add it as first option so it's preserved on save
-  if (current && !options.includes(current)) {
-    const opt = document.createElement("option");
-    opt.value = current;
-    opt.textContent = current + " (z .env)";
-    opt.selected = true;
-    selectEl.prepend(opt);
-  }
-}
+const PLACEHOLDER_VALUES = new Set(["Načítám…", "— nenalezeno —", "— vyberte zařízení —", "Chyba načítání", ""]);
 
-const PLACEHOLDER_VALUES = new Set(["Načítám…", "— nenalezeno —", "Chyba načítání", ""]);
-
-// ── Load current config ─────────────────────────────────────────────────────
+// ── Load current config ───────────────────────────────────────────────────────
 let _cfg = {};
 
 async function loadConfig() {
-  const res = await fetch("/api/config");
-  _cfg = await res.json();
+  try {
+    const res = await fetch("/api/config");
+    _cfg = await res.json();
+  } catch {
+    showBanner("✗ Nepodařilo se načíst konfiguraci", false);
+    return;
+  }
 
-  // Text/password fields — fill directly from .env values
   const textFields = [
     "SMTP_SERVER","SMTP_PORT","SMTP_USER","SMTP_PASS",
     "IMAP_SERVER","IMAP_POLL_INTERVAL","IMAP_USER","IMAP_PASS",
@@ -57,83 +106,77 @@ async function loadConfig() {
   await Promise.all([loadPrinters(), loadMtpDevices()]);
 }
 
-// ── Printer ─────────────────────────────────────────────────────────────────
+// ── Printer ───────────────────────────────────────────────────────────────────
 async function loadPrinters() {
-  const sel = document.getElementById("printer-select");
-  sel.innerHTML = '<option>Načítám…</option>';
+  document.getElementById("printer-display").textContent = "Načítám…";
   try {
     const res = await fetch("/api/config/printers");
     const list = await res.json();
-    setSelectOptions(sel, list, _cfg.PRINTER_NAME || "");
+    buildDropdown("printer", list, _cfg.PRINTER_NAME || "");
   } catch {
-    sel.innerHTML = '<option value="">Chyba načítání</option>';
+    document.getElementById("printer-display").textContent = "Chyba načítání";
   }
 }
 
-// ── MTP devices ─────────────────────────────────────────────────────────────
+// ── MTP devices ───────────────────────────────────────────────────────────────
 async function loadMtpDevices() {
-  const sel = document.getElementById("camera-device-select");
-  sel.innerHTML = '<option>Načítám…</option>';
+  document.getElementById("camera-device-display").textContent = "Načítám…";
   try {
     const res = await fetch("/api/config/mtp-devices");
     const list = await res.json();
-    setSelectOptions(sel, list, _cfg.CAMERA_NAME || "");
+    buildDropdown("camera-device", list, _cfg.CAMERA_NAME || "");
     await loadMtpFolders();
   } catch {
-    sel.innerHTML = '<option value="">Chyba načítání</option>';
+    document.getElementById("camera-device-display").textContent = "Chyba načítání";
   }
-}
-
-async function onDeviceChange() {
-  await loadMtpFolders();
 }
 
 async function loadMtpFolders() {
-  const deviceSel = document.getElementById("camera-device-select");
-  const folderSel = document.getElementById("camera-folder-select");
-  const device = deviceSel.value;
-  if (!device || device === "Načítám…" || device === "— nenalezeno —") {
-    folderSel.innerHTML = '<option value="">— vyberte zařízení —</option>';
+  const device = getSelectValue("camera-device");
+  if (!device || PLACEHOLDER_VALUES.has(device)) {
+    document.getElementById("camera-folder-display").textContent = "— vyberte zařízení —";
+    _selectState["camera-folder"] = { value: "", display: "— vyberte zařízení —" };
+    document.getElementById("camera-folder-dropdown").innerHTML = "";
     return;
   }
-  folderSel.innerHTML = '<option>Načítám…</option>';
+  document.getElementById("camera-folder-display").textContent = "Načítám…";
   try {
     const res = await fetch(`/api/config/mtp-folders?device=${encodeURIComponent(device)}`);
     const list = await res.json();
-    setSelectOptions(folderSel, list, _cfg.CAMERA_FOLDER_PATTERN || "");
+    buildDropdown("camera-folder", list, _cfg.CAMERA_FOLDER_PATTERN || "");
   } catch {
-    folderSel.innerHTML = '<option value="">Chyba načítání</option>';
+    document.getElementById("camera-folder-display").textContent = "Chyba načítání";
   }
 }
 
-// ── Restart NikonMove ───────────────────────────────────────────────────────
+// ── Restart NikonMove ─────────────────────────────────────────────────────────
 async function restartNikon() {
   const status = document.getElementById("nikon-status");
   status.textContent = "Restartuji…";
   try {
     await fetch("/api/config/restart-nikon", { method: "POST" });
+    status.style.color = "#86efac";
     status.textContent = "✓ NikonMove restarted";
-    setTimeout(() => status.textContent = "", 3000);
+    setTimeout(() => { status.textContent = ""; }, 3000);
   } catch {
+    status.style.color = "#f87171";
     status.textContent = "✗ Chyba restartu";
   }
 }
 
-// ── Save ────────────────────────────────────────────────────────────────────
+// ── Save ──────────────────────────────────────────────────────────────────────
 async function saveConfig() {
   const data = {};
 
-  // Printer
-  const printerSel = document.getElementById("printer-select");
-  if (printerSel.value && !PLACEHOLDER_VALUES.has(printerSel.value)) data.PRINTER_NAME = printerSel.value;
+  const printer = getSelectValue("printer");
+  if (printer && !PLACEHOLDER_VALUES.has(printer)) data.PRINTER_NAME = printer;
 
-  // Camera
-  const deviceSel = document.getElementById("camera-device-select");
-  const folderSel = document.getElementById("camera-folder-select");
-  if (deviceSel.value && !PLACEHOLDER_VALUES.has(deviceSel.value)) data.CAMERA_NAME = deviceSel.value;
-  if (folderSel.value && !PLACEHOLDER_VALUES.has(folderSel.value)) data.CAMERA_FOLDER_PATTERN = folderSel.value;
+  const device = getSelectValue("camera-device");
+  if (device && !PLACEHOLDER_VALUES.has(device)) data.CAMERA_NAME = device;
 
-  // Text/password fields — skip password fields if left empty (don't blank real creds)
+  const folder = getSelectValue("camera-folder");
+  if (folder && !PLACEHOLDER_VALUES.has(folder)) data.CAMERA_FOLDER_PATTERN = folder;
+
   [
     "SMTP_SERVER","SMTP_PORT","SMTP_USER","SMTP_PASS",
     "IMAP_SERVER","IMAP_POLL_INTERVAL","IMAP_USER","IMAP_PASS",
@@ -141,8 +184,7 @@ async function saveConfig() {
   ].forEach(k => {
     const el = document.getElementById(k);
     if (!el) return;
-    const isPassword = k.endsWith("_PASS");
-    if (isPassword && !el.value) return; // don't overwrite with empty
+    if (k.endsWith("_PASS") && !el.value) return;
     data[k] = el.value;
   });
 
@@ -159,24 +201,48 @@ async function saveConfig() {
     } else {
       showBanner("✗ Chyba při ukládání: " + (r.error || "?"), false);
     }
-  } catch (e) {
+  } catch {
     showBanner("✗ Chyba spojení", false);
   }
 }
 
-// ── Logs ────────────────────────────────────────────────────────────────────
+// ── Log level custom select ───────────────────────────────────────────────────
+let _currentLogLevel = "INFO";
+
+function pickLogLevel(level) {
+  _currentLogLevel = level;
+  document.getElementById("log-level-display").textContent = level;
+  document.getElementById("log-level-dropdown").classList.remove("open");
+  document.querySelectorAll("#log-level-dropdown .custom-select-option").forEach(el => {
+    el.classList.toggle("selected", el.dataset.val === level);
+  });
+  fetch("/api/config/log-level", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ level }),
+  });
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────────
 const LEVEL_COLORS = { DEBUG: "log-DEBUG", INFO: "log-INFO", WARNING: "log-WARNING", ERROR: "log-ERROR" };
 let _lastLogCount = 0;
 
-async function loadLogs() {
+const HTTP_NOISE = /werkzeug.*GET \/api\/logs|GET \/api\/logs HTTP/;
+
+async function loadLogs(force) {
   try {
     const res = await fetch("/api/logs");
     const lines = await res.json();
-    if (lines.length === _lastLogCount) return;
+    if (!force && lines.length === _lastLogCount) return;
     _lastLogCount = lines.length;
 
+    const filterHttp = document.getElementById("log-filter-http")?.checked;
+    const filtered = filterHttp
+      ? lines.filter(l => !HTTP_NOISE.test(l.msg) && !(l.name === "werkzeug" && l.msg.includes("GET /api/logs")))
+      : lines;
+
     const box = document.getElementById("log-box");
-    box.innerHTML = lines.map(l =>
+    box.innerHTML = filtered.map(l =>
       `<div class="log-line ${LEVEL_COLORS[l.level] || ""}">[${l.t}] ${l.level.padEnd(7)} ${l.name}: ${l.msg}</div>`
     ).join("");
 
@@ -186,16 +252,12 @@ async function loadLogs() {
   } catch {}
 }
 
-async function setLogLevel() {
-  const level = document.getElementById("log-level-select").value;
-  await fetch("/api/config/log-level", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ level }),
-  });
-}
+// ── Init ──────────────────────────────────────────────────────────────────────
+// Set data-val on static log-level options for the selected state tracking
+document.querySelectorAll("#log-level-dropdown .custom-select-option").forEach(el => {
+  if (!el.dataset.val) el.dataset.val = el.textContent.trim();
+});
 
-// ── Init ────────────────────────────────────────────────────────────────────
 loadConfig();
-loadLogs();
+loadLogs(true);
 setInterval(loadLogs, 2000);
