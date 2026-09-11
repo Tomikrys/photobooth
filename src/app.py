@@ -1,4 +1,5 @@
-import os, shutil, logging
+import os, shutil, logging, subprocess, sys, threading
+from collections import deque
 from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 from flask_socketio import SocketIO
@@ -9,6 +10,21 @@ import mailer
 from email_queue import EmailQueue
 
 log = logging.getLogger(__name__)
+
+# In-memory ring buffer — last 500 log lines, shown in /config
+_log_buffer = deque(maxlen=500)
+
+class _BufferHandler(logging.Handler):
+    def emit(self, record):
+        _log_buffer.append({
+            "t": self.formatTime(record, "%H:%M:%S"),
+            "level": record.levelname,
+            "name": record.name,
+            "msg": record.getMessage(),
+        })
+
+_buf_handler = _BufferHandler()
+logging.getLogger().addHandler(_buf_handler)
 
 flask_app = Flask(__name__, static_folder="static", static_url_path="")
 flask_app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "photobooth-dev-key-change-in-prod")
@@ -22,6 +38,36 @@ email_queue = EmailQueue(
     smtp_pass=config.SMTP_PASS,
     processed_dir=config.PROCESSED_DIR,
 )
+
+# --- NikonMove process management (module-level so /api/config/restart-nikon can reach it) ---
+_nikon_proc = None
+_nikon_lock = threading.Lock()
+_src_dir = Path(__file__).resolve().parent
+_root_dir = _src_dir.parent
+
+
+def _start_nikon():
+    global _nikon_proc
+    nikon_script = _src_dir / "NikonMove.ps1"
+    if not nikon_script.exists():
+        return
+    _nikon_proc = subprocess.Popen(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(nikon_script)],
+        cwd=str(_root_dir)
+    )
+    log.info("NikonMove started (PID %s)", _nikon_proc.pid)
+
+
+def _stop_nikon():
+    global _nikon_proc
+    if _nikon_proc and _nikon_proc.poll() is None:
+        _nikon_proc.terminate()
+        try:
+            _nikon_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            _nikon_proc.kill()
+        log.info("NikonMove stopped")
+    _nikon_proc = None
 
 
 def _photo_list():
@@ -131,6 +177,179 @@ def api_hide():
     return jsonify({"ok": True})
 
 
+@flask_app.route("/config")
+def config_page():
+    return send_from_directory("static", "config.html")
+
+
+@flask_app.route("/api/config", methods=["GET"])
+def api_config_get():
+    """Return current .env values for the settings panel."""
+    root = Path(__file__).resolve().parent.parent
+    env_path = root / ".env"
+    values = {}
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            values[k.strip()] = v.strip()
+    return jsonify(values)
+
+
+@flask_app.route("/api/config", methods=["POST"])
+def api_config_save():
+    """Write posted key/value pairs into .env and reload config."""
+    data = request.json  # {KEY: value, ...}
+    root = Path(__file__).resolve().parent.parent
+    env_path = root / ".env"
+
+    # Read existing lines
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+
+    # Update or append each key
+    updated = set()
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            new_lines.append(line)
+            continue
+        k = stripped.partition("=")[0].strip()
+        if k in data:
+            new_lines.append(f"{k}={data[k]}")
+            updated.add(k)
+        else:
+            new_lines.append(line)
+    for k, v in data.items():
+        if k not in updated:
+            new_lines.append(f"{k}={v}")
+
+    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+    # Reload config module so new values are live immediately
+    import importlib
+    try:
+        importlib.reload(config)
+        log.info("config reloaded after settings save")
+    except Exception as exc:
+        log.warning("config reload failed: %s", exc)
+
+    return jsonify({"ok": True})
+
+
+@flask_app.route("/api/config/printers")
+def api_config_printers():
+    """List installed printers (Windows: PowerShell; others: lpstat)."""
+    printers = []
+    if sys.platform == "win32":
+        try:
+            out = subprocess.check_output(
+                ["powershell", "-NoProfile", "-Command",
+                 "Get-Printer | Select-Object -ExpandProperty Name"],
+                text=True, timeout=10
+            )
+            printers = [l.strip() for l in out.splitlines() if l.strip()]
+        except Exception as exc:
+            log.warning("printer list failed: %s", exc)
+    else:
+        try:
+            out = subprocess.check_output(["lpstat", "-p"], text=True, timeout=5)
+            for line in out.splitlines():
+                if line.startswith("printer "):
+                    printers.append(line.split()[1])
+        except Exception as exc:
+            log.warning("printer list failed: %s", exc)
+    return jsonify(printers)
+
+
+@flask_app.route("/api/config/mtp-devices")
+def api_config_mtp_devices():
+    """List MTP devices visible in Shell namespace (Windows only)."""
+    if sys.platform != "win32":
+        return jsonify([])
+    try:
+        script = (
+            "$shell = New-Object -ComObject Shell.Application;"
+            "$ns = $shell.Namespace(0x11);"
+            "if (-not $ns) { exit };"
+            "foreach ($item in $ns.Items()) {"
+            "  try {"
+            "    $f = $item.GetFolder;"
+            "    if (-not $f) { continue };"
+            "    $hasStorage = $f.Items() | Where-Object { $_.Name -like '*storage*' } | Select-Object -First 1;"
+            "    if ($hasStorage) { Write-Output $item.Name }"
+            "  } catch {}"
+            "}"
+        )
+        out = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", script],
+            text=True, timeout=15
+        )
+        devices = [l.strip() for l in out.splitlines() if l.strip()]
+        return jsonify(devices)
+    except Exception as exc:
+        log.warning("MTP device list failed: %s", exc)
+        return jsonify([])
+
+
+@flask_app.route("/api/config/mtp-folders")
+def api_config_mtp_folders():
+    """List DCIM subfolders for a given MTP device name."""
+    device_name = request.args.get("device", "")
+    if sys.platform != "win32" or not device_name:
+        return jsonify([])
+    try:
+        script = (
+            f"$shell = New-Object -ComObject Shell.Application;"
+            f"$ns = $shell.Namespace(0x11);"
+            f"$cam = $ns.Items() | Where-Object {{ $_.Name -like '*{device_name}*' }} | Select-Object -First 1;"
+            f"if (-not $cam) {{ exit }};"
+            f"$storage = $cam.GetFolder.Items() | Where-Object {{ $_.Name -like '*storage*' }} | Select-Object -First 1;"
+            f"if (-not $storage) {{ exit }};"
+            f"$dcim = $storage.GetFolder.Items() | Where-Object {{ $_.Name -eq 'DCIM' }} | Select-Object -First 1;"
+            f"if (-not $dcim) {{ exit }};"
+            f"$dcim.GetFolder.Items() | ForEach-Object {{ Write-Output $_.Name }}"
+        )
+        out = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", script],
+            text=True, timeout=15
+        )
+        folders = [l.strip() for l in out.splitlines() if l.strip()]
+        return jsonify(folders)
+    except Exception as exc:
+        log.warning("MTP folder list failed: %s", exc)
+        return jsonify([])
+
+
+@flask_app.route("/api/config/restart-nikon", methods=["POST"])
+def api_restart_nikon():
+    """Restart the NikonMove.ps1 process."""
+    with _nikon_lock:
+        _stop_nikon()
+        _start_nikon()
+    return jsonify({"ok": True})
+
+
+@flask_app.route("/api/logs")
+def api_logs():
+    """Return the in-memory log buffer (last 500 lines)."""
+    return jsonify(list(_log_buffer))
+
+
+@flask_app.route("/api/config/log-level", methods=["POST"])
+def api_set_log_level():
+    """Set the root logger level dynamically."""
+    level = request.json.get("level", "INFO").upper()
+    numeric = getattr(logging, level, None)
+    if not isinstance(numeric, int):
+        return jsonify({"ok": False, "error": f"Unknown level: {level}"}), 400
+    logging.getLogger().setLevel(numeric)
+    log.info("Log level set to %s", level)
+    return jsonify({"ok": True})
+
+
 def on_new_photo(result: dict):
     fullres_name = Path(result["fullres"]).name
     thumb_path = Path(result["thumb"])
@@ -166,6 +385,10 @@ if __name__ == "__main__":
     poller.start()
 
     email_queue.start()
+    # Only spawn NikonMove when running standalone (not via Photobooth.exe launcher,
+    # which spawns it separately). Set NIKON_MANAGED=1 in the launcher to skip this.
+    if not os.environ.get("NIKON_MANAGED"):
+        _start_nikon()
 
     port = int(os.environ.get("PORT", "5001"))
     socketio.run(flask_app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)

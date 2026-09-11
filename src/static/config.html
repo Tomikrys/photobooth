@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nastavení — Foto Koutek</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #1a1a2e; font-family: Georgia, serif; }
+    .gold { color: #d4af37; }
+    .gold-border { border-color: #d4af37; }
+    .gold-bg { background: #d4af37; }
+    .field-label { @apply block text-xs text-gray-500 tracking-widest mb-1 uppercase; }
+    input, select { @apply bg-black border border-gray-700 text-white rounded px-3 py-2 text-sm w-full focus:border-yellow-600 outline-none; }
+    .section { @apply bg-gray-900 rounded-lg p-5 mb-4; }
+    .section-title { @apply gold text-sm font-bold tracking-widest mb-4 uppercase; }
+    .log-line { font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; }
+    .log-WARNING { color: #facc15; }
+    .log-ERROR   { color: #f87171; }
+    .log-INFO    { color: #d1d5db; }
+    .log-DEBUG   { color: #6b7280; }
+  </style>
+</head>
+<body class="min-h-screen text-white">
+
+  <header class="text-center py-5 border-b border-yellow-700 mb-6">
+    <h1 class="text-2xl tracking-widest gold">NASTAVENÍ</h1>
+    <p class="text-xs text-gray-500 mt-1">FOTO KOUTEK — Eliška &amp; Tom 2026</p>
+    <a href="/" class="text-xs text-gray-600 hover:text-yellow-600 mt-1 inline-block">← zpět do galerie</a>
+  </header>
+
+  <div class="max-w-2xl mx-auto px-4 pb-12">
+
+    <!-- Status banner -->
+    <div id="banner" class="hidden rounded px-4 py-2 mb-4 text-sm text-center"></div>
+
+    <!-- Printer -->
+    <div class="section">
+      <div class="section-title">🖨 Tiskárna</div>
+      <label class="field-label">Název tiskárny</label>
+      <div class="flex gap-2">
+        <select id="printer-select" class="flex-1"></select>
+        <button onclick="loadPrinters()" class="border gold-border gold rounded px-3 py-2 text-xs hover:opacity-80 whitespace-nowrap">↺ Obnovit</button>
+      </div>
+    </div>
+
+    <!-- Camera -->
+    <div class="section">
+      <div class="section-title">📷 Fotoaparát (MTP)</div>
+      <label class="field-label">Zařízení</label>
+      <div class="flex gap-2 mb-3">
+        <select id="camera-device-select" class="flex-1" onchange="onDeviceChange()"></select>
+        <button onclick="loadMtpDevices()" class="border gold-border gold rounded px-3 py-2 text-xs hover:opacity-80 whitespace-nowrap">↺ Obnovit</button>
+      </div>
+      <label class="field-label">Složka ve fotoaparátu (DCIM)</label>
+      <div class="flex gap-2 mb-3">
+        <select id="camera-folder-select" class="flex-1"></select>
+        <button onclick="loadMtpFolders()" class="border gold-border gold rounded px-3 py-2 text-xs hover:opacity-80 whitespace-nowrap">↺ Složky</button>
+      </div>
+      <button onclick="restartNikon()" class="border border-yellow-700 gold rounded px-4 py-2 text-xs hover:opacity-80 w-full">
+        ↺ Restartovat připojení k fotoaparátu
+      </button>
+      <p id="nikon-status" class="text-xs text-gray-600 mt-2 text-center"></p>
+    </div>
+
+    <!-- SMTP / IMAP -->
+    <div class="section">
+      <div class="section-title">✉ E-mail (SMTP / IMAP)</div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="field-label">SMTP server</label>
+          <input id="SMTP_SERVER" type="text" placeholder="smtp.seznam.cz">
+        </div>
+        <div>
+          <label class="field-label">SMTP port</label>
+          <input id="SMTP_PORT" type="text" placeholder="465">
+        </div>
+        <div>
+          <label class="field-label">SMTP uživatel</label>
+          <input id="SMTP_USER" type="text" placeholder="foto@example.cz">
+        </div>
+        <div>
+          <label class="field-label">SMTP heslo</label>
+          <input id="SMTP_PASS" type="password" placeholder="app-specific password">
+        </div>
+        <div>
+          <label class="field-label">IMAP server</label>
+          <input id="IMAP_SERVER" type="text" placeholder="imap.seznam.cz">
+        </div>
+        <div>
+          <label class="field-label">IMAP interval (s)</label>
+          <input id="IMAP_POLL_INTERVAL" type="text" placeholder="30">
+        </div>
+        <div>
+          <label class="field-label">IMAP uživatel</label>
+          <input id="IMAP_USER" type="text" placeholder="foto@example.cz">
+        </div>
+        <div>
+          <label class="field-label">IMAP heslo</label>
+          <input id="IMAP_PASS" type="password" placeholder="app-specific password">
+        </div>
+      </div>
+    </div>
+
+    <!-- Photo folders -->
+    <div class="section">
+      <div class="section-title">📁 Složky fotografií</div>
+      <div class="grid grid-cols-1 gap-3">
+        <div><label class="field-label">Vstupní složka (camera)</label><input id="CAMERA_DIR" type="text"></div>
+        <div><label class="field-label">Záloha originálů (raw)</label><input id="RAW_DIR" type="text"></div>
+        <div><label class="field-label">Zpracované fotografie (processed)</label><input id="PROCESSED_DIR" type="text"></div>
+        <div><label class="field-label">Miniatury (thumbs)</label><input id="THUMBS_DIR" type="text"></div>
+        <div><label class="field-label">Vytištěné (printed)</label><input id="PRINTED_DIR" type="text"></div>
+        <div><label class="field-label">Skryté (hidden)</label><input id="HIDDEN_DIR" type="text"></div>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <button onclick="saveConfig()" class="gold-bg text-gray-900 font-bold rounded-full px-6 py-3 w-full text-sm hover:opacity-90 mb-6">
+      💾 Uložit nastavení
+    </button>
+
+    <!-- Log level + live logs -->
+    <div class="section">
+      <div class="flex items-center justify-between mb-3">
+        <div class="section-title mb-0">📋 Logy</div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-500">Úroveň:</label>
+          <select id="log-level-select" onchange="setLogLevel()" class="w-28 py-1 text-xs">
+            <option value="DEBUG">DEBUG</option>
+            <option value="INFO" selected>INFO</option>
+            <option value="WARNING">WARNING</option>
+            <option value="ERROR">ERROR</option>
+          </select>
+          <button onclick="loadLogs()" class="border gold-border gold rounded px-2 py-1 text-xs hover:opacity-80">↺</button>
+          <label class="text-xs text-gray-500 flex items-center gap-1">
+            <input type="checkbox" id="log-autoscroll" checked class="w-3 h-3"> auto-scroll
+          </label>
+        </div>
+      </div>
+      <div id="log-box" class="bg-black rounded p-3 overflow-y-auto" style="height:320px"></div>
+    </div>
+
+  </div>
+
+  <script src="/config.js"></script>
+</body>
+</html>

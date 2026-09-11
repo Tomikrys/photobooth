@@ -341,7 +341,8 @@ function Start-Child {
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)][string]$FilePath,
         [string[]]$ArgumentList = @(),
-        [Parameter(Mandatory)][string]$WorkingDirectory
+        [Parameter(Mandatory)][string]$WorkingDirectory,
+        [hashtable]$ExtraEnv = @{}
     )
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName               = $FilePath
@@ -350,6 +351,10 @@ function Start-Child {
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError  = $true
     $psi.CreateNoWindow         = $true
+
+    foreach ($kv in $ExtraEnv.GetEnumerator()) {
+        $psi.EnvironmentVariables[$kv.Key] = $kv.Value
+    }
 
     # PS 5.1 lacks ProcessStartInfo.ArgumentList - use .Arguments (single string).
     # Quote every arg so paths with spaces (Program Files, OneDrive - SAP SE, ...) survive.
@@ -409,7 +414,8 @@ try {
     $appProc = Start-Child -Name "APP" `
         -FilePath $pythonExe `
         -ArgumentList @($appScript) `
-        -WorkingDirectory $rootDir
+        -WorkingDirectory $rootDir `
+        -ExtraEnv @{ "NIKON_MANAGED" = "1" }
     $children += @{ Name = "APP"; Process = $appProc }
 } catch {
     Write-Log "Failed to start app.py: $($_.Exception.Message)" "Red"
