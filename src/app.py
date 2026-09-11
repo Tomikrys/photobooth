@@ -14,14 +14,29 @@ log = logging.getLogger(__name__)
 # In-memory ring buffer — last 500 log lines, shown in /config
 _log_buffer = deque(maxlen=500)
 
+# Loggers that produce high-frequency noise with no actionable signal
+_NOISY_LOGGERS = {"werkzeug", "engineio.server", "socketio.server"}
+# Message fragments to suppress even from non-noisy loggers
+_NOISY_FRAGMENTS = (
+    "GET /api/logs",
+    "GET /socket.io",
+    "POST /socket.io",
+    "watcher flush",
+)
+
 class _BufferHandler(logging.Handler):
     def emit(self, record):
+        if record.name in _NOISY_LOGGERS:
+            return
+        msg = record.getMessage()
+        if any(f in msg for f in _NOISY_FRAGMENTS):
+            return
         from datetime import datetime
         _log_buffer.append({
             "t": datetime.fromtimestamp(record.created).strftime("%H:%M:%S"),
             "level": record.levelname,
             "name": record.name,
-            "msg": record.getMessage(),
+            "msg": msg,
         })
 
 _buf_handler = _BufferHandler()
