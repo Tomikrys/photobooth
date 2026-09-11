@@ -23,35 +23,34 @@ function buildDropdown(id, options, current) {
   dropdown.innerHTML = "";
 
   if (!options.length) {
-    const label = current || "— nenalezeno —";
+    // No live devices — show .env value as a passive hint, don't pretend it's selectable
+    const label = current ? current + " (nepripojeno)" : "— nenalezeno —";
     display.textContent = label;
     _selectState[id] = { value: current || "", display: label };
     const opt = document.createElement("div");
     opt.className = "custom-select-option" + (current ? " selected" : "");
-    opt.textContent = current ? current + " (z .env)" : "— nenalezeno —";
+    opt.textContent = label;
     opt.dataset.val = current || "";
-    opt.onclick = () => pickOption(id, current || "", opt.textContent);
+    opt.onclick = () => pickOption(id, current || "", label);
     dropdown.appendChild(opt);
     return;
   }
 
-  // If current value not in list, prepend it
-  const allOptions = [...options];
-  const currentLabel = current && !options.includes(current) ? current + " (z .env)" : null;
-  if (currentLabel) allOptions.unshift(current);
+  // Devices found — auto-select best match: exact, partial, or first in list
+  const selected = options.find(o => o === current)
+    || options.find(o => current && o.includes(current))
+    || options.find(o => current && current.includes(o))
+    || options[0];
 
-  const selected = current || allOptions[0];
-  display.textContent = (current && !options.includes(current)) ? currentLabel : (selected || allOptions[0]);
-  _selectState[id] = { value: selected, display: display.textContent };
+  display.textContent = selected;
+  _selectState[id] = { value: selected, display: selected };
 
-  allOptions.forEach(o => {
-    const isSelected = o === selected;
-    const label = (o === current && !options.includes(current)) ? o + " (z .env)" : o;
+  options.forEach(o => {
     const opt = document.createElement("div");
-    opt.className = "custom-select-option" + (isSelected ? " selected" : "");
-    opt.textContent = label;
+    opt.className = "custom-select-option" + (o === selected ? " selected" : "");
+    opt.textContent = o;
     opt.dataset.val = o;
-    opt.onclick = () => pickOption(id, o, label);
+    opt.onclick = () => pickOption(id, o, o);
     dropdown.appendChild(opt);
   });
 }
