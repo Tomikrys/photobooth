@@ -14,9 +14,9 @@ _ROOT = Path(__file__).resolve().parent.parent
 # search (walks up from CWD). Explicit path avoids surprises when CWD != root.
 _env_at_root = _ROOT / ".env"
 if _env_at_root.exists():
-    load_dotenv(_env_at_root)
+    load_dotenv(_env_at_root, override=True)
 else:
-    load_dotenv()
+    load_dotenv(override=True)
 
 def _abs(p: str) -> str:
     path = Path(p)
@@ -24,14 +24,14 @@ def _abs(p: str) -> str:
         path = _ROOT / path
     return str(path.resolve())
 
-PRINTER_NAME = os.environ["PRINTER_NAME"]
-SMTP_SERVER = os.environ["SMTP_SERVER"]
+PRINTER_NAME = os.environ.get("PRINTER_NAME", "")
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
-SMTP_USER = os.environ["SMTP_USER"]
-SMTP_PASS = os.environ["SMTP_PASS"]
-IMAP_SERVER = os.environ["IMAP_SERVER"]
-IMAP_USER = os.environ["IMAP_USER"]
-IMAP_PASS = os.environ["IMAP_PASS"]
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASS = os.environ.get("SMTP_PASS", "")
+IMAP_SERVER = os.environ.get("IMAP_SERVER", "")
+IMAP_USER = os.environ.get("IMAP_USER", "")
+IMAP_PASS = os.environ.get("IMAP_PASS", "")
 IMAP_POLL_INTERVAL = int(os.environ.get("IMAP_POLL_INTERVAL", "30"))
 CAMERA_DIR = _abs(os.environ.get("CAMERA_DIR", "./photos/camera"))
 RAW_DIR = _abs(os.environ.get("RAW_DIR", "./photos/raw"))

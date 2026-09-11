@@ -64,9 +64,9 @@ class EmailQueue:
     def flush(self) -> tuple[int, int]:
         """Try to send every queued entry. Returns (sent, remaining)."""
         with self._lock:
+            if not self._entries:
+                return (0, 0)
             snapshot = list(self._entries)
-        if not snapshot:
-            return (0, 0)
 
         sent = 0
         still_queued: list[dict] = []
@@ -87,19 +87,22 @@ class EmailQueue:
                 sent += 1
                 log.info("Queued email flushed: %s → %s", entry["filename"], entry["recipient"])
             except mailer.EmailConnectionError:
-                # still offline — keep the rest queued and stop trying this round
+                # still offline — keep this and all remaining entries, stop trying
                 idx = snapshot.index(entry)
-                still_queued.extend(snapshot[idx:])
                 for e in snapshot[idx:]:
                     e["attempts"] = e.get("attempts", 0) + 1
+                still_queued.extend(snapshot[idx:])
                 break
             except Exception as e:  # noqa: BLE001
-                # non-connection error (auth, bad address) — drop after logging
                 log.error("Dropping queued email %s → %s: %s",
                           entry["filename"], entry["recipient"], e)
 
         with self._lock:
-            self._entries = still_queued
+            # Merge: keep entries added by enqueue() during the flush, plus our still_queued.
+            # Entries added during flush are those NOT in snapshot (appended after we copied).
+            flushed_names = {id(e) for e in snapshot}
+            new_entries = [e for e in self._entries if id(e) not in flushed_names]
+            self._entries = still_queued + new_entries
             self._save()
         return (sent, len(still_queued))
 

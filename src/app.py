@@ -48,6 +48,9 @@ _root_dir = _src_dir.parent
 
 def _start_nikon():
     global _nikon_proc
+    if os.environ.get("NIKON_MANAGED"):
+        log.debug("NIKON_MANAGED set — NikonMove managed by launcher, skipping")
+        return
     nikon_script = _src_dir / "NikonMove.ps1"
     if not nikon_script.exists():
         return
@@ -184,18 +187,27 @@ def config_page():
 
 @flask_app.route("/api/config", methods=["GET"])
 def api_config_get():
-    """Return current .env values for the settings panel."""
-    root = Path(__file__).resolve().parent.parent
-    env_path = root / ".env"
-    values = {}
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, _, v = line.partition("=")
-            values[k.strip()] = v.strip()
-    return jsonify(values)
+    """Return current live config values (what the app actually uses)."""
+    return jsonify({
+        "PRINTER_NAME": config.PRINTER_NAME,
+        "SMTP_SERVER": config.SMTP_SERVER,
+        "SMTP_PORT": str(config.SMTP_PORT),
+        "SMTP_USER": config.SMTP_USER,
+        "SMTP_PASS": config.SMTP_PASS,
+        "IMAP_SERVER": config.IMAP_SERVER,
+        "IMAP_USER": config.IMAP_USER,
+        "IMAP_PASS": config.IMAP_PASS,
+        "IMAP_POLL_INTERVAL": str(config.IMAP_POLL_INTERVAL),
+        "CAMERA_NAME": os.environ.get("CAMERA_NAME", "D3100"),
+        "CAMERA_FOLDER_PATTERN": os.environ.get("CAMERA_FOLDER_PATTERN", "100D3100"),
+        "CAMERA_DIR": config.CAMERA_DIR,
+        "RAW_DIR": config.RAW_DIR,
+        "PROCESSED_DIR": config.PROCESSED_DIR,
+        "THUMBS_DIR": config.THUMBS_DIR,
+        "PRINTED_DIR": config.PRINTED_DIR,
+        "HIDDEN_DIR": config.HIDDEN_DIR,
+        "EMAIL_QUEUE_PATH": config.EMAIL_QUEUE_PATH,
+    })
 
 
 @flask_app.route("/api/config", methods=["POST"])
@@ -228,13 +240,21 @@ def api_config_save():
 
     env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
-    # Reload config module so new values are live immediately
+    # Reload config module (load_dotenv uses override=True so new values land in os.environ)
     import importlib
     try:
         importlib.reload(config)
         log.info("config reloaded after settings save")
     except Exception as exc:
         log.warning("config reload failed: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    # Update stateful objects that captured config values at construction time
+    email_queue._smtp_server = config.SMTP_SERVER
+    email_queue._smtp_port = config.SMTP_PORT
+    email_queue._smtp_user = config.SMTP_USER
+    email_queue._smtp_pass = config.SMTP_PASS
+    email_queue._processed_dir = Path(config.PROCESSED_DIR)
 
     return jsonify({"ok": True})
 
@@ -300,11 +320,13 @@ def api_config_mtp_folders():
     device_name = request.args.get("device", "")
     if sys.platform != "win32" or not device_name:
         return jsonify([])
+    # Escape PowerShell -like wildcards to prevent injection / unintended matching
+    safe_name = device_name.replace("'", "''").replace("[", "`[").replace("]", "`]").replace("*", "`*").replace("?", "`?")
     try:
         script = (
             f"$shell = New-Object -ComObject Shell.Application;"
             f"$ns = $shell.Namespace(0x11);"
-            f"$cam = $ns.Items() | Where-Object {{ $_.Name -like '*{device_name}*' }} | Select-Object -First 1;"
+            f"$cam = $ns.Items() | Where-Object {{ $_.Name -eq '{safe_name}' }} | Select-Object -First 1;"
             f"if (-not $cam) {{ exit }};"
             f"$storage = $cam.GetFolder.Items() | Where-Object {{ $_.Name -like '*storage*' }} | Select-Object -First 1;"
             f"if (-not $storage) {{ exit }};"

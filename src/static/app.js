@@ -56,7 +56,7 @@ function renderGallery() {
   gallery.innerHTML = photos.map((p, i) => `
     <div class="cursor-pointer rounded overflow-hidden border border-gray-800 hover:border-yellow-700 transition"
          onclick="openLightbox(${i})">
-      <img src="${p.thumb}" class="w-full aspect-[3/2] object-cover" loading="lazy" alt="">
+      <img src="${encodeURI(p.thumb)}" class="w-full aspect-[3/2] object-cover" loading="lazy" alt="">
     </div>`).join("");
 }
 
@@ -75,14 +75,14 @@ function closeLightbox() {
 
 function renderLightbox() {
   const photo = photos[currentIndex];
-  document.getElementById("photo-main").src = `/photos/processed/${photo.filename}`;
+  document.getElementById("photo-main").src = `/photos/processed/${encodeURIComponent(photo.filename)}`;
   renderFilmstrip();
 }
 
 function renderFilmstrip() {
   const strip = document.getElementById("filmstrip");
   strip.innerHTML = photos.map((p, i) => `
-    <img src="${p.thumb}"
+    <img src="${encodeURI(p.thumb)}"
          class="filmstrip-item h-full aspect-[3/2] object-cover rounded cursor-pointer flex-shrink-0 ${i === currentIndex ? "active" : "opacity-50"}"
          onclick="openLightbox(${i})" alt="">`).join("");
   // scroll active into view
@@ -189,7 +189,7 @@ function setEmailBusy(busy) {
 document.getElementById("email-toggle-btn").addEventListener("click", openEmailModal);
 document.getElementById("email-modal-close").addEventListener("click", closeEmailModal);
 document.getElementById("email-modal-cancel").addEventListener("click", closeEmailModal);
-emailModal.addEventListener("click", (e) => { if (e.target === emailModal) closeEmailModal(); });
+emailModal.addEventListener("click", (e) => { if (e.target === emailModal && !emailSendBtn.disabled) closeEmailModal(); });
 
 emailSendBtn.addEventListener("click", async () => {
   const recipient = emailInput.value.trim();
@@ -283,12 +283,19 @@ setInterval(async () => {
   try {
     const res = await fetch("/api/photos");
     const fresh = await res.json();
-    // Only re-render if the set of filenames changed to avoid flicker.
     const oldKeys = photos.map(p => p.filename).join(",");
     const newKeys = fresh.map(p => p.filename).join(",");
-    if (oldKeys !== newKeys) {
-      photos = fresh;
-      renderGallery();
+    if (oldKeys === newKeys) return;
+
+    // Preserve lightbox position by filename, not index
+    const lightboxOpen = document.getElementById("lightbox").classList.contains("open");
+    const currentFilename = lightboxOpen && photos[currentIndex] ? photos[currentIndex].filename : null;
+    photos = fresh;
+    if (lightboxOpen) {
+      const newIdx = currentFilename ? photos.findIndex(p => p.filename === currentFilename) : -1;
+      currentIndex = newIdx >= 0 ? newIdx : 0;
+      renderLightbox();
     }
+    renderGallery();
   } catch (_) {}
 }, 10000);

@@ -13,6 +13,8 @@ $ErrorActionPreference = "Stop"
 # ------------------------------------------
 $envPath = ".\.env"
 $DestinationFolder = "C:\Photos\NikonD3100" # Fallback if .env is missing/invalid
+$CameraName    = "D3100"
+$FolderPattern = "100D3100"
 
 function Write-Log {
     param(
@@ -55,9 +57,6 @@ if (Test-Path -LiteralPath $envPath) {
 } else {
     Write-Log "Warning: .env file not found. Using default path: $DestinationFolder" "Yellow"
 }
-
-$CameraName    = "D3100"
-$FolderPattern = "100D3100"
 
 # ------------------------------------------
 # DIRECTORY SETUP
@@ -194,6 +193,7 @@ try {
                         Write-Log "Camera '$CameraName' not detected. Waiting..." "DarkYellow"
                         $cameraWasConnected = $false
                     }
+                    $dcimFolder = $null  # invalidate cache so we re-walk on reconnect
                     Start-Sleep -Seconds 2
                     continue
                 }

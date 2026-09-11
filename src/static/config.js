@@ -10,7 +10,11 @@ function showBanner(msg, ok) {
 function setSelectOptions(selectEl, options, current) {
   selectEl.innerHTML = "";
   if (!options.length) {
-    selectEl.innerHTML = '<option value="">— nenalezeno —</option>';
+    // Keep the current known value so a failed enumeration doesn't overwrite it on save
+    const val = current || "";
+    selectEl.innerHTML = val
+      ? `<option value="${val}">${val} (z .env)</option>`
+      : '<option value="">— nenalezeno —</option>';
     return;
   }
   options.forEach(o => {
@@ -20,7 +24,7 @@ function setSelectOptions(selectEl, options, current) {
     if (o === current) opt.selected = true;
     selectEl.appendChild(opt);
   });
-  // If nothing matched current, add it as first option
+  // If nothing matched current, add it as first option so it's preserved on save
   if (current && !options.includes(current)) {
     const opt = document.createElement("option");
     opt.value = current;
@@ -127,14 +131,17 @@ async function saveConfig() {
   if (deviceSel.value) data.CAMERA_NAME = deviceSel.value;
   if (folderSel.value) data.CAMERA_FOLDER_PATTERN = folderSel.value;
 
-  // Text/password fields
+  // Text/password fields — skip password fields if left empty (don't blank real creds)
   [
     "SMTP_SERVER","SMTP_PORT","SMTP_USER","SMTP_PASS",
     "IMAP_SERVER","IMAP_POLL_INTERVAL","IMAP_USER","IMAP_PASS",
     "CAMERA_DIR","RAW_DIR","PROCESSED_DIR","THUMBS_DIR","PRINTED_DIR","HIDDEN_DIR",
   ].forEach(k => {
     const el = document.getElementById(k);
-    if (el) data[k] = el.value;
+    if (!el) return;
+    const isPassword = k.endsWith("_PASS");
+    if (isPassword && !el.value) return; // don't overwrite with empty
+    data[k] = el.value;
   });
 
   try {
