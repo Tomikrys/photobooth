@@ -36,19 +36,21 @@ def _print_windows(filepath: str, printer_name: str, copies: int) -> None:
         printable_h = dc.GetDeviceCaps(10)  # VERTRES
 
         img_w, img_h = img.size
-        scale = min(printable_w / img_w, printable_h / img_h)
+        # Scale to fill the printable area (cover), then crop the overflow from center
+        scale = max(printable_w / img_w, printable_h / img_h)
         new_w = int(img_w * scale)
         new_h = int(img_h * scale)
         img = img.resize((new_w, new_h), Image.LANCZOS)
 
-        x_offset = (printable_w - new_w) // 2
-        y_offset = (printable_h - new_h) // 2
+        x_offset = (new_w - printable_w) // 2
+        y_offset = (new_h - printable_h) // 2
+        img = img.crop((x_offset, y_offset, x_offset + printable_w, y_offset + printable_h))
 
         for _ in range(copies):
             dc.StartDoc(Path(filepath).name)
             dc.StartPage()
             dib = ImageWin.Dib(img)
-            dib.draw(dc.GetSafeHdc(), (x_offset, y_offset, x_offset + new_w, y_offset + new_h))
+            dib.draw(dc.GetSafeHdc(), (0, 0, printable_w, printable_h))
             dc.EndPage()
             dc.EndDoc()
     finally:
