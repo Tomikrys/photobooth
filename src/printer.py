@@ -35,6 +35,12 @@ def _print_windows(filepath: str, printer_name: str, copies: int) -> None:
         printable_w = dc.GetDeviceCaps(8)   # HORZRES
         printable_h = dc.GetDeviceCaps(10)  # VERTRES
 
+        # Rotate image to match paper orientation so landscape photos fill portrait paper
+        img_landscape = img.width > img.height
+        paper_landscape = printable_w > printable_h
+        if img_landscape != paper_landscape:
+            img = img.rotate(90, expand=True)
+
         img_w, img_h = img.size
         # Scale to fill the printable area (cover), then crop the overflow from center
         scale = max(printable_w / img_w, printable_h / img_h)
