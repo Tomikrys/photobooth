@@ -181,8 +181,7 @@ document.getElementById("copies-minus").addEventListener("click", () => {
   if (copiesCount > 1) { copiesCount--; document.getElementById("copies-count").textContent = copiesCount; }
 });
 document.getElementById("copies-plus").addEventListener("click", () => {
-  copiesCount++;
-  document.getElementById("copies-count").textContent = copiesCount;
+  if (copiesCount < 5) { copiesCount++; document.getElementById("copies-count").textContent = copiesCount; }
 });
 
 // ── Print ──────────────────────────────────────────────────────────────────
