@@ -224,7 +224,7 @@ const emailSendLbl = document.getElementById("email-modal-send-label");
 function openEmailModal() {
   emailInput.value = "";
   emailStatus.textContent = "";
-  emailStatus.className = "text-xs text-center mt-3 h-4";
+  emailStatus.className = "text-xs text-center mt-3 min-h-4";
   setEmailBusy(false);
   emailModal.style.display = "flex";
   setTimeout(() => emailInput.focus(), 50);
@@ -251,7 +251,7 @@ emailSendBtn.addEventListener("click", async () => {
   const recipient = emailInput.value.trim();
   if (!recipient) {
     emailStatus.textContent = "Zadejte e-mailovou adresu.";
-    emailStatus.className = "text-xs text-center mt-3 h-4 text-red-400";
+    emailStatus.className = "text-xs text-center mt-3 min-h-4 text-red-400";
     return;
   }
   const photo = photos[currentIndex];
@@ -266,19 +266,19 @@ emailSendBtn.addEventListener("click", async () => {
     const data = await res.json();
     if (data.ok) {
       emailStatus.textContent = data.queued
-        ? "⏳ Bez internetu — odešle se po připojení"
+        ? "📵 Není internet — e-mail odešleme automaticky po připojení"
         : "✓ E-mail odeslán";
-      emailStatus.className = "text-xs text-center mt-3 h-4 gold";
+      emailStatus.className = "text-xs text-center mt-3 min-h-4 gold";
       setEmailBusy(false);
-      setTimeout(() => { emailModal.style.display = "none"; }, 1600);
+      setTimeout(() => { emailModal.style.display = "none"; }, data.queued ? 4000 : 1600);
     } else {
       emailStatus.textContent = "✗ " + (data.error || "Chyba odeslání");
-      emailStatus.className = "text-xs text-center mt-3 h-4 text-red-400";
+      emailStatus.className = "text-xs text-center mt-3 min-h-4 text-red-400";
       setEmailBusy(false);
     }
   } catch (e) {
     emailStatus.textContent = "✗ Chyba spojení";
-    emailStatus.className = "text-xs text-center mt-3 h-4 text-red-400";
+    emailStatus.className = "text-xs text-center mt-3 min-h-4 text-red-400";
     setEmailBusy(false);
   }
 });
