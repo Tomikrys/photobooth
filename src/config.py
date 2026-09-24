@@ -27,7 +27,7 @@ def _abs(p: str) -> str:
 WEDDING_NAMES = os.environ.get("WEDDING_NAMES", "Eliška & Tom")
 WEDDING_YEAR  = os.environ.get("WEDDING_YEAR",  "2026")
 EMAIL_SUBJECT = os.environ.get("EMAIL_SUBJECT", f"Fotočka — Svatba {WEDDING_NAMES} {WEDDING_YEAR}")
-EMAIL_BODY    = os.environ.get("EMAIL_BODY",    "Ahoj,\n\nvaše fotka z fotokoutku leží v příloze. :)\n\nDěkujeme!")
+EMAIL_BODY    = os.environ.get("EMAIL_BODY",    "Ahoj,\n\nvaše fotka z fotokoutku leží v příloze. :)\n\nDěkujeme!").replace("\\n", "\n")
 
 PRINTER_NAME = os.environ.get("PRINTER_NAME", "")
 SMTP_SERVER = os.environ.get("SMTP_SERVER", "")
