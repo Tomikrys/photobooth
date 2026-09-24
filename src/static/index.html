@@ -32,10 +32,13 @@
 <body class="min-h-screen text-white">
 
   <!-- Header -->
-  <header class="text-center py-6 border-b border-yellow-700">
+  <header class="text-center py-6 border-b border-yellow-700 relative">
     <h1 id="wedding-heading" class="text-3xl tracking-widest gold">FOTO KOUTEK</h1>
     <p class="text-sm tracking-widest text-gray-400 mt-1">FOTO KOUTEK</p>
     <p class="text-xs text-gray-500 mt-2">Klikněte na fotografii pro tisk nebo odeslání e-mailem</p>
+    <button id="qr-btn" onclick="openQrModal()" class="absolute right-4 top-1/2 -translate-y-1/2 border gold-border gold rounded-full px-3 py-2 text-xs hover:opacity-80" style="touch-action:manipulation;">
+      📷 Přidat vlastní fotku
+    </button>
   </header>
 
   <!-- Gallery grid -->
@@ -122,6 +125,23 @@
     </div>
   </div>
 
+  <!-- QR modal -->
+  <div id="qr-modal" class="fixed inset-0 z-[70] items-center justify-center" style="display:none;background:rgba(0,0,0,0.85)">
+    <div class="bg-gray-900 border gold-border rounded-lg p-6 w-full max-w-sm mx-4 shadow-2xl relative text-center">
+      <button onclick="closeQrModal()" class="absolute top-2 right-3 text-gray-500 hover:text-white text-2xl leading-none" style="touch-action:manipulation;">✕</button>
+      <h2 class="gold text-lg font-bold tracking-widest mb-4">PŘIDAT VLASTNÍ FOTKU</h2>
+      <ol class="text-sm text-gray-300 text-left space-y-2 mb-5">
+        <li>1. Naskenuj QR kód telefonem</li>
+        <li>2. Otevře se emailová aplikace s předvyplněnou adresou</li>
+        <li>3. Přilož svoji fotku a odešli</li>
+        <li>4. Fotka se za chvíli objeví v galerii</li>
+      </ol>
+      <div id="qr-canvas" class="flex justify-center mb-4"></div>
+      <p id="qr-address" class="text-xs text-gray-500 break-all"></p>
+    </div>
+  </div>
+
+  <script src="/qrcode.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -5,7 +5,8 @@ let copiesCount = 1;
 let toastTimer = null;
 let toastFilename = null;
 
-// ── Wedding branding ───────────────────────────────────────────────────────
+// ── Wedding branding + QR setup ───────────────────────────────────────────
+let _imapUser = "";
 fetch("/api/config").then(r => r.json()).then(cfg => {
   const names = cfg.WEDDING_NAMES || "";
   const year  = cfg.WEDDING_YEAR  || "";
@@ -15,7 +16,35 @@ fetch("/api/config").then(r => r.json()).then(cfg => {
     const h = document.getElementById("wedding-heading");
     if (h) h.textContent = label;
   }
-}).catch(() => {});
+
+  _imapUser = cfg.IMAP_USER || "";
+  const qrBtn = document.getElementById("qr-btn");
+  if (qrBtn) qrBtn.style.display = _imapUser ? "" : "none";
+}).catch(() => {
+  const qrBtn = document.getElementById("qr-btn");
+  if (qrBtn) qrBtn.style.display = "none";
+});
+
+// ── QR modal ───────────────────────────────────────────────────────────────
+let _qrGenerated = false;
+function openQrModal() {
+  const modal = document.getElementById("qr-modal");
+  modal.style.display = "flex";
+  if (!_qrGenerated && _imapUser) {
+    const mailto = "mailto:" + _imapUser + "?subject=Fotka";
+    const container = document.getElementById("qr-canvas");
+    container.innerHTML = "";
+    new QRCode(container, { text: mailto, width: 200, height: 200, colorDark: "#d4af37", colorLight: "#111827" });
+    document.getElementById("qr-address").textContent = _imapUser;
+    _qrGenerated = true;
+  }
+}
+function closeQrModal() {
+  document.getElementById("qr-modal").style.display = "none";
+}
+document.getElementById("qr-modal").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("qr-modal")) closeQrModal();
+});
 
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 socket.on("new_photo", (photo) => {
