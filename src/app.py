@@ -170,6 +170,8 @@ def api_email():
             smtp_port=config.SMTP_PORT,
             smtp_user=config.SMTP_USER,
             smtp_pass=config.SMTP_PASS,
+            subject=config.EMAIL_SUBJECT,
+            body=config.EMAIL_BODY,
         )
         return jsonify({"ok": True})
     except mailer.EmailConnectionError as exc:
@@ -228,6 +230,10 @@ def api_config_get():
         "PRINTED_DIR": config.PRINTED_DIR,
         "HIDDEN_DIR": config.HIDDEN_DIR,
         "EMAIL_QUEUE_PATH": config.EMAIL_QUEUE_PATH,
+        "WEDDING_NAMES": config.WEDDING_NAMES,
+        "WEDDING_YEAR": config.WEDDING_YEAR,
+        "EMAIL_SUBJECT": config.EMAIL_SUBJECT,
+        "EMAIL_BODY": config.EMAIL_BODY,
     })
 
 

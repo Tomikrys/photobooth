@@ -19,6 +19,8 @@ def send_email(
     smtp_port: int,
     smtp_user: str,
     smtp_pass: str,
+    subject: str = "Fotočka",
+    body: str = "Ahoj,\n\nvaše fotka z fotokoutku leží v příloze. :)\n\nDěkujeme!",
 ) -> None:
     if isinstance(recipient, str):
         recipients = [r.strip() for r in recipient.split(",") if r.strip()]
@@ -30,10 +32,9 @@ def send_email(
     msg = MIMEMultipart()
     msg["From"] = smtp_user
     msg["To"] = ", ".join(recipients)
-    msg["Subject"] = "Fotočka — Svatba Eliška & Tom 2026"
+    msg["Subject"] = subject
 
-    body = MIMEText("Ahoj,\n\nvaše fotka z fotokoutku leží v příloze. :)\n\nDěkujeme!", "plain", "utf-8")
-    msg.attach(body)
+    msg.attach(MIMEText(body, "plain", "utf-8"))
 
     with open(filepath, "rb") as f:
         part = MIMEBase("image", "jpeg")

@@ -96,11 +96,17 @@ async function loadConfig() {
     "SMTP_SERVER","SMTP_PORT","SMTP_USER","SMTP_PASS",
     "IMAP_SERVER","IMAP_POLL_INTERVAL","IMAP_USER","IMAP_PASS",
     "CAMERA_DIR","RAW_DIR","PROCESSED_DIR","THUMBS_DIR","PRINTED_DIR","HIDDEN_DIR",
+    "WEDDING_NAMES","WEDDING_YEAR","EMAIL_SUBJECT","EMAIL_BODY",
   ];
   textFields.forEach(k => {
     const el = document.getElementById(k);
     if (el) el.value = _cfg[k] || "";
   });
+
+  const names = _cfg.WEDDING_NAMES || "";
+  const year  = _cfg.WEDDING_YEAR  || "";
+  const sub = document.getElementById("config-subtitle");
+  if (sub && names) sub.textContent = "FOTO KOUTEK — " + names + (year ? " " + year : "");
 
   await Promise.all([loadPrinters(), loadMtpDevices()]);
 }

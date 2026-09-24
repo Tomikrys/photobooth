@@ -56,7 +56,7 @@
 
   <header class="text-center py-5 border-b border-yellow-700 mb-6">
     <h1 class="text-2xl tracking-widest gold">NASTAVENÍ</h1>
-    <p class="text-xs text-gray-500 mt-1">FOTO KOUTEK — Eliška &amp; Tom 2026</p>
+    <p id="config-subtitle" class="text-xs text-gray-500 mt-1">FOTO KOUTEK</p>
     <a href="/" class="text-xs text-gray-600 hover:text-yellow-600 mt-1 inline-block">← zpět do galerie</a>
   </header>
 
@@ -100,6 +100,29 @@
         ↺ Restartovat připojení k fotoaparátu
       </button>
       <p id="nikon-status" class="text-xs text-gray-600 mt-2 text-center"></p>
+    </div>
+
+    <!-- Wedding branding -->
+    <div class="section">
+      <span class="section-title">💍 Svatba</span>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="field-label">Jména (např. Eliška &amp; Tom)</label>
+          <input class="field-input" id="WEDDING_NAMES" type="text" placeholder="Eliška &amp; Tom">
+        </div>
+        <div>
+          <label class="field-label">Rok</label>
+          <input class="field-input" id="WEDDING_YEAR" type="text" placeholder="2026">
+        </div>
+        <div>
+          <label class="field-label">Předmět emailu</label>
+          <input class="field-input" id="EMAIL_SUBJECT" type="text" placeholder="Fotočka — Svatba …">
+        </div>
+        <div>
+          <label class="field-label">Text emailu</label>
+          <input class="field-input" id="EMAIL_BODY" type="text" placeholder="Ahoj, …">
+        </div>
+      </div>
     </div>
 
     <!-- SMTP / IMAP -->

@@ -5,6 +5,18 @@ let copiesCount = 1;
 let toastTimer = null;
 let toastFilename = null;
 
+// ── Wedding branding ───────────────────────────────────────────────────────
+fetch("/api/config").then(r => r.json()).then(cfg => {
+  const names = cfg.WEDDING_NAMES || "";
+  const year  = cfg.WEDDING_YEAR  || "";
+  const label = (names + (year ? " " + year : "")).toUpperCase();
+  if (label) {
+    document.title = names + (year ? " " + year : "") + " — Foto Koutek";
+    const h = document.getElementById("wedding-heading");
+    if (h) h.textContent = label;
+  }
+}).catch(() => {});
+
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 socket.on("new_photo", (photo) => {
   const lightboxOpen = document.getElementById("lightbox").classList.contains("open");
