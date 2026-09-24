@@ -48,6 +48,7 @@ document.getElementById("qr-modal").addEventListener("click", (e) => {
 
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 socket.on("new_photo", (photo) => {
+  closeQrModal();
   const lightboxOpen = document.getElementById("lightbox").classList.contains("open");
   photos.unshift(photo);
   if (lightboxOpen) currentIndex++;  // keep same photo selected — new one was prepended
@@ -142,6 +143,10 @@ document.getElementById("next-btn").addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (e) => {
+  if (document.getElementById("qr-modal").style.display === "flex") {
+    if (e.key === "Escape") closeQrModal();
+    return;
+  }
   if (emailModal.style.display === "flex") {
     if (e.key === "Escape") closeEmailModal();
     if (e.key === "Enter" && !emailSendBtn.disabled) emailSendBtn.click();
