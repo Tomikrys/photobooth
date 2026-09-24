@@ -1,4 +1,4 @@
-# Foto Koutek — Eliška & Tom 2026
+# Foto Koutek
 
 A wedding photo-booth web app. Runs on a laptop connected to a Canon SELPHY dye-sub printer. Guests take photos (either via a camera that syncs a folder, or by emailing them to a mailbox), and a browser gallery on the same laptop shows them live, lets you reprint, resend by email, or delete.
 
@@ -107,6 +107,12 @@ Everything is driven by `.env`. This file is git-ignored — never commit it.
 # Printer — picked interactively on first run; edit to change
 PRINTER_NAME=Canon SELPHY CP1500
 
+# Wedding branding — shown in the UI and email subject
+WEDDING_NAMES=Eliška & Tom
+WEDDING_YEAR=2026
+EMAIL_SUBJECT=Fotočka — Svatba Eliška & Tom 2026
+EMAIL_BODY=Ahoj,\n\nvaše fotka z fotokoutku leží v příloze. :)\n\nDěkujeme!
+
 # Outgoing mail (Seznam.cz)
 SMTP_SERVER=smtp.seznam.cz
 SMTP_PORT=465
@@ -130,6 +136,7 @@ PROCESSED_DIR=./photos/processed
 THUMBS_DIR=./photos/processed/thumbs
 PRINTED_DIR=./photos/printed
 HIDDEN_DIR=./photos/hidden
+EMAIL_QUEUE_PATH=./photos/email_queue.json
 ```
 
 ### Seznam.cz app-specific passwords
