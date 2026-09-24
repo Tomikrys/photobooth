@@ -32,7 +32,7 @@ def send_email(
     msg["To"] = ", ".join(recipients)
     msg["Subject"] = "Fotočka — Svatba Eliška & Tom 2026"
 
-    body = MIMEText("Ola amigo,\n\nvyžádaná fotočka leží v příloze.\n\nNech sa páči.", "plain", "utf-8")
+    body = MIMEText("Ahoj,\n\nvaše fotka z fotokoutku leží v příloze. :)\n\nDěkujeme!", "plain", "utf-8")
     msg.attach(body)
 
     with open(filepath, "rb") as f:

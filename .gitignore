@@ -11,3 +11,4 @@ src/venv/
 
 # Built artifact (produced by Build.bat)
 Photobooth.exe
+.playwright-mcp/
